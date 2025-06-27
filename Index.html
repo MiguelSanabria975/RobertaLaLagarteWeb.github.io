@@ -23,20 +23,41 @@
     <script type="module">
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
-        imageTargetSrc: "./TargetPortadaRoberta.mind",
+        imageTargetSrc: "TargetsMind/MultiTarget.mind",
       });
 
       const { renderer, scene, camera } = mindarThree;
-      const anchor = mindarThree.addAnchor(0);
 
-      // Crear plano rojo
-      const geometry = new THREE.PlaneGeometry(1, 1);
-      const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-      const plane = new THREE.Mesh(geometry, material);
+      // Configura los videos asociados a cada target index
+      const targets = [
+        { index: 0, src: "Animations/Prueba.mp4" },
+        { index: 1, src: "Animations/Saxo.mp4" },
+        //{ index: 2, src: "Animations/video3.mp4" },
+      ];
 
-      anchor.group.add(plane);
+      targets.forEach(({ index, src }) => {
+        const anchor = mindarThree.addAnchor(index);
 
-      // Iniciar AR
+        // Crear video HTML
+        const video = document.createElement("video");
+        video.src = src;
+        video.crossOrigin = "anonymous";
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+
+        const texture = new THREE.VideoTexture(video);
+        const geometry = new THREE.PlaneGeometry(1, 1);
+        const material = new THREE.MeshBasicMaterial({ map: texture });
+        const videoPlane = new THREE.Mesh(geometry, material);
+
+        anchor.group.add(videoPlane);
+
+        // Eventos para reproducir y pausar el video según tracking
+        anchor.onTargetFound = () => video.play();
+        anchor.onTargetLost = () => video.pause();
+      });
+
       const start = async () => {
         await mindarThree.start();
         renderer.setAnimationLoop(() => {
