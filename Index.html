@@ -47,7 +47,7 @@
         video.playsInline = true;
 
         const texture = new THREE.VideoTexture(video);
-        const geometry = new THREE.PlaneGeometry(1, 1);
+        const geometry = new THREE.PlaneGeometry(1, 0.7); // Dimensiones del video plane
         const material = new THREE.MeshBasicMaterial({ map: texture });
         const videoPlane = new THREE.Mesh(geometry, material);
 
