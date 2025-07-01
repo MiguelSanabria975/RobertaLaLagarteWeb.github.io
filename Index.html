@@ -31,9 +31,48 @@
       // Configura los videos asociados a cada target index
       const targets = [
         { index: 0, src: "Animations/Prueba.mp4" },
-        { index: 1, src: "Animations/Saxo.mp4" },
+        { index: 1, src: "Animations/PruebaFrente.mp4" },
         //{ index: 2, src: "Animations/video3.mp4" },
       ];
+
+      //Texture
+  const makeChromaMaterial = (texture, key = 0x0F00DA) => {
+  const col = new THREE.Color(key);
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: texture },
+      keyColor: { value: col },
+      similarity: { value: 0.35 },   // tolerancia
+      smoothness: { value: 0.1 }     // borde suave
+    },
+    transparent: true,
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix *
+                      vec4(position,1.0);
+      }`,
+    fragmentShader: /* glsl */`
+      uniform sampler2D map;
+      uniform vec3 keyColor;
+      uniform float similarity;
+      uniform float smoothness;
+      varying vec2 vUv;
+      void main() {
+        vec4 tex = texture2D(map, vUv);
+        float Y = dot(tex.rgb, vec3(0.2989, 0.5866, 0.1145));
+        float Cr = tex.r - Y;
+        float Cb = tex.b - Y;
+        float Yk = dot(keyColor.rgb, vec3(0.2989,0.5866,0.1145));
+        float Crk = keyColor.r - Yk;
+        float Cbk = keyColor.b - Yk;
+        float diff = distance(vec2(Cr,Cb), vec2(Crk,Cbk));
+        float alpha = smoothstep(similarity, similarity+smoothness, diff);
+        gl_FragColor = vec4(tex.rgb, alpha);
+      }`
+  });
+};
 
       targets.forEach(({ index, src }) => {
         const anchor = mindarThree.addAnchor(index);
@@ -48,7 +87,7 @@
 
         const texture = new THREE.VideoTexture(video);
         const geometry = new THREE.PlaneGeometry(1, 0.7); // Dimensiones del video plane
-        const material = new THREE.MeshBasicMaterial({ map: texture });
+        const material = makeChromaMaterial(texture, 0x0F00DA);
         const videoPlane = new THREE.Mesh(geometry, material);
 
         anchor.group.add(videoPlane);
