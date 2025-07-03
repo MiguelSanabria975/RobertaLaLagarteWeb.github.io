@@ -1,39 +1,36 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8" content="width=device-width,initial-scale=1,viewport-fit=cover,
-                 user-scalable=no"/>
+    <meta charset="UTF-8"/>
+
+    <meta name="viewport"
+        content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
 
     <title>MindAR WebAR Multicapas + Multitarget</title>
+
+    <!-- Librerías -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
- <style>
-  :root{
-        /*  NUEVO fallback para navegadores sin 100dvh */
-        --vh: 1vh;
-      }
 
-      body{
-        margin:0;
-        overflow:hidden;
-      }
-
-      /*  NUEVO usa 100dvh y fallback */
-      #ar-container{
-        width:100vw;
-        height:100dvh;                    /* navegadores modernos */
-        height:calc(var(--vh) * 100);     /* fallback iOS≤15 / Android≤108 */
-        position:fixed;                   /* evita scroll “fantasma” */
+    <style>
+      :root { --vh: 1vh; }
+      body { margin:0; overflow:hidden; }
+      #ar-container {
+        position:fixed;
         inset:0;
+        width:100vw;
+        height:100dvh;
+        height:calc(var(--vh) * 100);
       }
-  </style>
-</head>
+    </style>
   </head>
+
   <body>
     <div id="ar-container"></div>
 
     <script type="module">
-      function fixVH(){
+      /* ------------ Ajuste de altura “real” (FIX 100vh) ------------- */
+      function fixVH() {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
       }
@@ -41,7 +38,7 @@
       window.addEventListener('resize', fixVH);
       window.addEventListener('orientationchange', fixVH);
 
-     /* Shader para croma */
+      /* Shader para croma */
       const makeChromaMaterial = (texture, key = 0x0f00da) => {
         const col = new THREE.Color(key);
         return new THREE.ShaderMaterial({
@@ -81,38 +78,36 @@
         });
       };
 
-       /* ---------- MINDAR ---------- */
-
+      /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
         imageTargetSrc: "TargetsMind/MultiTarget.mind",
-      });
 
+        /* ← suavizado para reducir jitter */
+        filterMinCF: 0.003,
+        filterBeta: 0.2
+      });
       const { renderer, scene, camera } = mindarThree;
 
-      // Definir los targets y sus capas de video
+      /* Definir los targets y sus capas de video */
       const targets = [
         {
           index: 0,
           layers: [
-            { src: "Animations/PruebaFondo.mp4", z: -0.02, chroma: false }, // video background
-            { src: "Animations/PruebaFrente.mp4", z: 0.2, chroma: true }, // video del personaje principales
-            //  { src: "Animations/.mp4", z: 0.02, chroma: true } // video de elementos extras
+            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: false },
+            { src: "Animations/PruebaFrente.mp4", z:  0.2, chroma: true  } /* ← antes 0.2 */
           ],
         },
         {
           index: 1,
           layers: [
-            { src: "Animations/PruebaFondo.mp4", z: -0.02, chroma: false }, // video background
-            { src: "Animations/PruebaFrente.mp4", z: 0.2, chroma: true }, // video del personaje principales
-            //  { src: "Animations/.mp4", z: 0.02, chroma: true } // video de elementos extras
+            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: false },
+            { src: "Animations/PruebaFrente.mp4", z:  0.2, chroma: true  } /* ← antes 0.2 */
           ],
         },
       ];
 
-
-        /* Crea anclas y vídeos */
-      // Iterar sobre cada target y sus capas
+      /* Crea anclas y vídeos */
       targets.forEach(({ index, layers }) => {
         const anchor = mindarThree.addAnchor(index);
         const videos = [];
@@ -137,22 +132,14 @@
           anchor.group.add(plane);
         });
 
-        anchor.onTargetFound = () => {
-          videos.forEach((v) => v.play());
-        };
-
-        anchor.onTargetLost = () => {
-          videos.forEach((v) => v.pause());
-        };
+        anchor.onTargetFound = () => videos.forEach(v => v.play());
+        anchor.onTargetLost  = () => videos.forEach(v => v.pause());
       });
 
       const start = async () => {
         await mindarThree.start();
-        renderer.setAnimationLoop(() => {
-          renderer.render(scene, camera);
-        });
+        renderer.setAnimationLoop(() => renderer.render(scene, camera));
       };
-
       start();
     </script>
   </body>
