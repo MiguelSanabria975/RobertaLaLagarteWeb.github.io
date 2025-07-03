@@ -1,26 +1,47 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8" content="width=device-width,initial-scale=1,viewport-fit=cover,
+                 user-scalable=no"/>
+
     <title>MindAR WebAR Multicapas + Multitarget</title>
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
+ <style>
+  :root{
+        /*  NUEVO fallback para navegadores sin 100dvh */
+        --vh: 1vh;
       }
-      #ar-container {
-        width: 100vw;
-        height: 100vh;
-        position: relative;
+
+      body{
+        margin:0;
+        overflow:hidden;
       }
-    </style>
+
+      /*  NUEVO usa 100dvh y fallback */
+      #ar-container{
+        width:100vw;
+        height:100dvh;                    /* navegadores modernos */
+        height:calc(var(--vh) * 100);     /* fallback iOS≤15 / Android≤108 */
+        position:fixed;                   /* evita scroll “fantasma” */
+        inset:0;
+      }
+  </style>
+</head>
   </head>
   <body>
     <div id="ar-container"></div>
 
     <script type="module">
+      function fixVH(){
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      }
+      fixVH();
+      window.addEventListener('resize', fixVH);
+      window.addEventListener('orientationchange', fixVH);
+
+     /* Shader para croma */
       const makeChromaMaterial = (texture, key = 0x0f00da) => {
         const col = new THREE.Color(key);
         return new THREE.ShaderMaterial({
@@ -60,6 +81,8 @@
         });
       };
 
+       /* ---------- MINDAR ---------- */
+
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
         imageTargetSrc: "TargetsMind/MultiTarget.mind",
@@ -87,6 +110,8 @@
         },
       ];
 
+
+        /* Crea anclas y vídeos */
       // Iterar sobre cada target y sus capas
       targets.forEach(({ index, layers }) => {
         const anchor = mindarThree.addAnchor(index);
