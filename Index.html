@@ -45,8 +45,8 @@
           uniforms: {
             map: { value: texture },
             keyColor: { value: col },
-            similarity: { value: 0.35 },
-            smoothness: { value: 0.1 },
+            similarity: { value: 0.15 },
+            smoothness: { value: 0.6 },
           },
           transparent: true,
           vertexShader: `
@@ -84,8 +84,8 @@
         imageTargetSrc: "TargetsMind/MultiTarget.mind",
 
         /* ← suavizado para reducir jitter */
-        filterMinCF: 0.003,
-        filterBeta: 0.2
+        filterMinCF: 0.001,
+        filterBeta: 0.01
       });
       const { renderer, scene, camera } = mindarThree;
 
@@ -94,15 +94,17 @@
         {
           index: 0,
           layers: [
-            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: false },
-            { src: "Animations/PruebaFrente.mp4", z:  0.2, chroma: true  } /* ← antes 0.2 */
+            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: true },
+            { src: "Animations/PruebaMitad.mp4",  z: -0.01, chroma: true },
+            { src: "Animations/PruebaFrente.mp4", z: -0.005, chroma: true  } /* ← antes 0.2 */
           ],
         },
         {
           index: 1,
           layers: [
-            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: false },
-            { src: "Animations/PruebaFrente.mp4", z:  0.2, chroma: true  } /* ← antes 0.2 */
+            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: true },
+            { src: "Animations/PruebaMitad.mp4",  z: -0.01, chroma: true },
+            { src: "Animations/PruebaFrente.mp4", z: -0.005, chroma: true  } /* ← antes 0.2 */
           ],
         },
       ];
