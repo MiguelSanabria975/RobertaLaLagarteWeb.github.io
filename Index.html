@@ -94,17 +94,17 @@
         {
           index: 0,
           layers: [
-            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: true },
-            { src: "Animations/PruebaMitad.mp4",  z: -0.01, chroma: true },
-            { src: "Animations/PruebaFrente.mp4", z: -0.005, chroma: true  } /* ← antes 0.2 */
+            { src: "Animations/Video01_Fondo.mp4",  z: -0.02, chroma: true },
+            { src: "Animations/Video01_Mitad.mp4",  z: -0.01, chroma: true },
+            { src: "Animations/Video01_Frente.mp4", z: -0.005, chroma: true  } /* ← antes 0.2 */
           ],
         },
         {
           index: 1,
           layers: [
-            { src: "Animations/PruebaFondo.mp4",  z: -0.02, chroma: true },
-            { src: "Animations/PruebaMitad.mp4",  z: -0.01, chroma: true },
-            { src: "Animations/PruebaFrente.mp4", z: -0.005, chroma: true  } /* ← antes 0.2 */
+            { src: "Animations/Video01_Fondo.mp4",  z: -0.02, chroma: true },
+            { src: "Animations/Video01_Mitad.mp4",  z: -0.01, chroma: true },
+            { src: "Animations/Video01_Frente.mp4", z: -0.005, chroma: true  } /* ← antes 0.2 */
           ],
         },
       ];
@@ -124,13 +124,14 @@
           videos.push(video);
 
           const texture = new THREE.VideoTexture(video);
-          const geometry = new THREE.PlaneGeometry(1, 0.7);
+          const geometry = new THREE.PlaneGeometry(1.5, 0.7);
           const material = chroma
             ? makeChromaMaterial(texture, 0x0f00da)
             : new THREE.MeshBasicMaterial({ map: texture });
 
           const plane = new THREE.Mesh(geometry, material);
           plane.position.z = z;
+          plane.position.x = 0.3;
           anchor.group.add(plane);
         });
 
