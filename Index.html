@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8"/>
+    <meta charset="UTF-8" />
 
-    <meta name="viewport"
-        content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
+    />
 
     <title>MindAR WebAR Multicapas + Multitarget</title>
 
@@ -13,14 +15,19 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
 
     <style>
-      :root { --vh: 1vh; }
-      body { margin:0; overflow:hidden; }
+      :root {
+        --vh: 1vh;
+      }
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
       #ar-container {
-        position:fixed;
-        inset:0;
-        width:100vw;
-        height:100dvh;
-        height:calc(var(--vh) * 100);
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        height: calc(var(--vh) * 100);
       }
     </style>
   </head>
@@ -32,14 +39,14 @@
       /* ------------ Ajuste de altura “real” (FIX 100vh) ------------- */
       function fixVH() {
         const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        document.documentElement.style.setProperty("--vh", `${vh}px`);
       }
       fixVH();
-      window.addEventListener('resize', fixVH);
-      window.addEventListener('orientationchange', fixVH);
+      window.addEventListener("resize", fixVH);
+      window.addEventListener("orientationchange", fixVH);
 
       /* Shader para croma */
-      
+
       const makeChromaMaterial = (texture, key = 0x0f00da) => {
         const col = new THREE.Color(key);
         return new THREE.ShaderMaterial({
@@ -86,7 +93,7 @@
 
         /* ← suavizado para reducir jitter */
         filterMinCF: 0.001,
-        filterBeta: 0.01
+        filterBeta: 0.01,
       });
       const { renderer, scene, camera } = mindarThree;
 
@@ -95,63 +102,115 @@
         {
           index: 0,
           layers: [
-            { src: "Animations/Video01_Fondo.mp4",  z: -0.02, chroma:  "0x0f00da" },
-            { src: "Animations/Video01_Mitad.mp4",  z: -0.01, chroma:  "0x0f00da" },
-            { src: "Animations/Video01_Frente.mp4", z: -0.005, chroma:  "0x0f00da"  } /* ← antes 0.2 */
+            {
+              src: "Animations/Video01_Fondo.mp4",
+              z: -0.02,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video01_Mitad.mp4",
+              z: -0.01,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video01_Frente.mp4",
+              z: -0.005,
+              chroma: "0x0f00da",
+            } /* ← antes 0.2 */,
           ],
         },
         {
           index: 1,
           layers: [
-            { src: "Animations/Video01_Fondo.mp4",  z: -0.02, chroma: "0x0f00da"  },
-            { src: "Animations/Video01_Mitad.mp4",  z: -0.01, chroma:  "0x0f00da" },
-            { src: "Animations/Video01_Frente.mp4", z: -0.005, chroma:  "0x0f00da" } /* ← antes 0.2 */
+            {
+              src: "Animations/Video01_Fondo.mp4",
+              z: -0.02,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video01_Mitad.mp4",
+              z: -0.01,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video01_Frente.mp4",
+              z: -0.005,
+              chroma: "0x0f00da",
+            } /* ← antes 0.2 */,
+          ],
+        },
+        {
+          index: 3,
+          layers: [
+            {
+              src: "Animations/Video03_Fondo.mp4",
+              z: -0.02,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video03_Mitad.mp4",
+              z: -0.01,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video03_Frente.mp4",
+              z: -0.005,
+              chroma: "0x0f00da",
+            } /* ← antes 0.2 */,
           ],
         },
         {
           index: 5,
-          layers: [
-            { src: "Animations/Video05.mp4",  z: 0, chroma:"0x0f00da" },
-          ],
+          layers: [{ src: "Animations/Video05.mp4", z: 0, chroma: "0x0f00da" }],
         },
         {
           index: 6,
           layers: [
-            { src: "Animations/Video06_Fondo.mp4",  z: -0.05, chroma:"0x0f00da" },
-            { src: "Animations/Video06_Frente.mp4",  z: 0, chroma:"0x0f00da" },
+            {
+              src: "Animations/Video06_Fondo.mp4",
+              z: -0.05,
+              chroma: "0x0f00da",
+            },
+            { src: "Animations/Video06_Frente.mp4", z: 0, chroma: "0x0f00da" },
           ],
         },
-                {
+        {
           index: 8,
-          layers: [
-            { src: "Animations/Video08.mp4",  z: 0, chroma:"0x0f00da" },
-          ],
+          layers: [{ src: "Animations/Video08.mp4", z: 0, chroma: "0x0f00da" }],
         },
-                {
+        {
           index: 9,
-          layers: [
-            { src: "Animations/Video09.mp4",  z: 0, chroma:  "0x0f00da" },
-          ],
+          layers: [{ src: "Animations/Video09.mp4", z: 0, chroma: "0x0f00da" }],
         },
         {
           index: 10,
           layers: [
-            { src: "Animations/Video10_Fondo.mp4",  z: 0, chroma:  "0x0f00da" },
-            { src: "Animations/Video10_Mitad.mp4",  z: -0.02, chroma:  "0x0f00da" },
-            { src: "Animations/Video10_Frente.mp4",  z: 0.02, chroma:  "0x0f00da" },
+            { src: "Animations/Video10_Fondo.mp4", z: 0, chroma: "0x0f00da" },
+            {
+              src: "Animations/Video10_Mitad.mp4",
+              z: -0.02,
+              chroma: "0x0f00da",
+            },
+            {
+              src: "Animations/Video10_Frente.mp4",
+              z: 0.02,
+              chroma: "0x0f00da",
+            },
           ],
         },
+
+        {
+          index: 11,
+          layers: [{ src: "Animations/Video11.mp4", z: 0, chroma: "0x0f00da" }],
+        },
+
         {
           index: 16,
-          layers: [
-            { src: "Animations/Video17.mp4",  z: 0, chroma:  "0xFF0000" },
-          ],
+          layers: [{ src: "Animations/Video17.mp4", z: 0, chroma: "0x0f00da" }],
         },
         {
           index: 17,
-          layers: [
-            { src: "Animations/Video18.mp4",  z: 0, chroma:  "0x0f00da" },
-          ],
+          layers: [{ src: "Animations/Video18.mp4", z: 0, chroma: "0x0f00da" }],
         },
       ];
 
@@ -174,7 +233,7 @@
 
           /* ⇣ decide material según 'chroma' */
           let material;
-       
+
           if (typeof chroma === "string" && chroma) {
             const key = Number(chroma.replace("#", "0x"));
             material = makeChromaMaterial(texture, key);
@@ -187,8 +246,8 @@
           anchor.group.add(plane);
         });
 
-        anchor.onTargetFound = () => videos.forEach(v => v.play());
-        anchor.onTargetLost  = () => videos.forEach(v => v.pause());
+        anchor.onTargetFound = () => videos.forEach((v) => v.play());
+        anchor.onTargetLost = () => videos.forEach((v) => v.pause());
       });
 
       const start = async () => {
