@@ -36,7 +36,6 @@
     <div id="ar-container"></div>
 
     <script type="module">
-<<<<<<< Updated upstream
       /* ------------ Ajuste de altura “real” (FIX 100vh) ------------- */
       function fixVH() {
         const vh = window.innerHeight * 0.01;
@@ -87,17 +86,32 @@
         });
       };
 
-      /* ---------- MINDAR ---------- */
-=======
-      const loadShader = async (url) => {
-        const res = await fetch(url);
-        return await res.text();
+      // Función para crear partículas
+      const createParticles = () => {
+        const count = 150;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 1.5;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+        }
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+
+        const material = new THREE.PointsMaterial({
+          size: 10,
+          color: 0xffffff,
+          transparent: true,
+          opacity: 1.0,
+        });
+
+        return new THREE.Points(geometry, material);
       };
 
-      const vertexShader = await loadShader("Shader/chroma-vertex.glsl");
-      const fragmentShader = await loadShader("Shader/chroma-fragment.glsl");
-
->>>>>>> Stashed changes
+      /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
         imageTargetSrc: "TargetsMind/MultiTarget.mind",
@@ -108,7 +122,6 @@
       });
       const { renderer, scene, camera } = mindarThree;
 
-<<<<<<< Updated upstream
       /* Definir los targets y sus capas de video */
       const targets = [
         {
@@ -224,19 +237,17 @@
           index: 17,
           layers: [{ src: "Animations/Video18.mp4", z: 0, chroma: "0x0f00da" }],
         },
-=======
-      const targets = [
-        { index: 0, src: "Animations/PruebaBlue.mp4" },
-        { index: 1, src: "Animations/Prueba.mp4" },
->>>>>>> Stashed changes
       ];
 
-      /* Crea anclas y vídeos */
-      targets.forEach(({ index, layers }) => {
+      let particlesRef = null;
+      let target1Active = false;
+
+      // Crear los targets y videos
+      targets.forEach((target) => {
+        const { index, layers } = target;
         const anchor = mindarThree.addAnchor(index);
         const videos = [];
 
-<<<<<<< Updated upstream
         layers.forEach(({ src, z, chroma }) => {
           const video = document.createElement("video");
           video.src = src;
@@ -264,46 +275,45 @@
           anchor.group.add(plane);
         });
 
-        anchor.onTargetFound = () => videos.forEach((v) => v.play());
-        anchor.onTargetLost = () => videos.forEach((v) => v.pause());
-=======
-        const video = document.createElement("video");
-        video.src = src;
-        video.crossOrigin = "anonymous";
-        video.loop = true;
-        video.muted = true;
-        video.playsInline = true;
+        // Si es el target 1, agregamos partículas
+        if (index === 1) {
+          particlesRef = createParticles();
+          anchor.group.add(particlesRef);
 
-        const texture = new THREE.VideoTexture(video);
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.format = THREE.RGBAFormat;
+          anchor.onTargetFound = () => {
+            target1Active = true;
+            videos.forEach((v) => v.play());
+          };
 
-        const geometry = new THREE.PlaneGeometry(1, 0.7);
-
-        const material = new THREE.ShaderMaterial({
-          uniforms: {
-            texture: { value: texture },
-            keyColor: { value: new THREE.Color(0x0000ff) }, // azul chroma
-            similarity: { value: 0.3 },
-            smoothness: { value: 0.1 },
-          },
-          vertexShader,
-          fragmentShader,
-          transparent: true,
-        });
-
-        const videoPlane = new THREE.Mesh(geometry, material);
-        anchor.group.add(videoPlane);
-
-        anchor.onTargetFound = () => video.play();
-        anchor.onTargetLost = () => video.pause();
->>>>>>> Stashed changes
+          anchor.onTargetLost = () => {
+            target1Active = false;
+            videos.forEach((v) => v.pause());
+          };
+        } else {
+          // Otros targets sin partículas
+          anchor.onTargetFound = () => videos.forEach((v) => v.play());
+          anchor.onTargetLost = () => videos.forEach((v) => v.pause());
+        }
       });
+
+      // Animación para partículas
+      const animateParticles = () => {
+        if (particlesRef && target1Active) {
+          const positions = particlesRef.geometry.attributes.position.array;
+          const t = performance.now() * 0.001;
+          for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 1] += 0.002 * Math.sin(t + i); // Movimiento en Y
+          }
+          particlesRef.geometry.attributes.position.needsUpdate = true;
+        }
+      };
 
       const start = async () => {
         await mindarThree.start();
-        renderer.setAnimationLoop(() => renderer.render(scene, camera));
+        renderer.setAnimationLoop(() => {
+          animateParticles();
+          renderer.render(scene, camera);
+        });
       };
       start();
     </script>
