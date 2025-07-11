@@ -53,7 +53,7 @@
           uniforms: {
             map: { value: texture },
             keyColor: { value: col },
-            similarity: { value: 0.15 },
+            similarity: { value: 0.15},
             smoothness: { value: 0.6 },
           },
           transparent: true,
@@ -139,7 +139,7 @@
             },
             {
               src: "Animations/Video01_Mitad.mp4",
-              z: -0.01,
+              z: 0.1,
               chroma: "0x0f00da",
             },
           ],
@@ -154,7 +154,7 @@
             },
             {
               src: "Animations/Video01_Mitad.mp4",
-              z: 0,
+              z: 0.1,
               chroma: "0x0f00da",
             },
           ],
@@ -165,29 +165,29 @@
           
             {
               src: "Animations/Video03_Mitad.mp4",
-              z: -0.01,
+              z: 0.2,
               chroma: "0x0f00da",
             },
             {
               src: "Animations/Video03_Frente.mp4",
-              z: -0.005,
+              z: 0.1,
               chroma: "0x0f00da",
             } /* ← antes 0.2 */,
           ],
         },
         {
           index: 5,
-          layers: [{ src: "Animations/Video05.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [{ src: "Animations/Video05.mp4", z: 0.2, chroma: "0x0f00da" }],
         },
         {
           index: 6,
           layers: [
             {
               src: "Animations/Video06_Fondo.mp4",
-              z: -0.05,
+              z: -0.02,
               chroma: "0x0f00da",
             },
-            { src: "Animations/Video06_Frente.mp4", z: 0, chroma: "0x0f00da" },
+            { src: "Animations/Video06_Frente.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
         },
         {
@@ -224,7 +224,7 @@
 
         {
           index: 16,
-          layers: [{ src: "Animations/Video17.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [{ src: "Animations/Video17.mp4", z: 0.2, chroma: "0x0f00da" }],
         },
         {
           index: 17,
@@ -260,6 +260,12 @@
 
           const texture = new THREE.VideoTexture(video);
           const geometry = new THREE.PlaneGeometry(0.9, 0.8);
+          const uv = geometry.attributes.uv.array;
+          uv[0] = 0.01; // U min
+          uv[2] = 0.99; // U max
+          uv[4] = 0.01;
+          uv[6] = 0.99;
+          geometry.attributes.uv.needsUpdate = true;
 
           /* ⇣ decide material según 'chroma' */
           let material;
