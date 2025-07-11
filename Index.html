@@ -124,6 +124,70 @@
       });
       const { renderer, scene, camera } = mindarThree;
 
+      const anchor0 = mindarThree.addAnchor(0);
+
+      // Audio
+      const audio = new Audio("Audio/Bosque.mp3");
+      audio.loop = true;
+      audio.volume = 1.0;
+      audio.preload = "auto";
+
+      // Botón dentro del target
+      const buttonGeometry = new THREE.PlaneGeometry(0.3, 0.1);
+      const buttonMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      const buttonMesh = new THREE.Mesh(buttonGeometry, buttonMaterial);
+      buttonMesh.position.set(0, -0.5, 0.1); // Debajo de las partículas
+      buttonMesh.name = "audioButton"; // importante
+
+      anchor0.group.add(buttonMesh); // donde anchor1 es el de index 1
+
+      /////////////////// RAYCAST BUTTON /////////////////
+
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+
+      // Función de raycasting compartida
+      const handleInteraction = (clientX, clientY) => {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((clientX - bounds.left) / bounds.width) * 2 - 1;
+        pointer.y = -((clientY - bounds.top) / bounds.height) * 2 + 1;
+
+        raycaster.setFromCamera(pointer, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+
+        for (let i = 0; i < intersects.length; i++) {
+          const obj = intersects[i].object;
+          if (obj.name === "audioButton") {
+            if (audio.paused) {
+              audio.play();
+              obj.material.color.set(0xff0000); // Activo
+            } else {
+              audio.pause();
+              obj.material.color.set(0x00fffff); // Inactivo
+            }
+            break;
+          }
+        }
+      };
+
+      // Touch para móviles
+      renderer.domElement.addEventListener(
+        "touchstart",
+        (event) => {
+          handleInteraction(event.touches[0].clientX, event.touches[0].clientY);
+        },
+        false
+      );
+
+      // Mouse para portátiles/PC
+      renderer.domElement.addEventListener(
+        "mousedown",
+        (event) => {
+          handleInteraction(event.clientX, event.clientY);
+        },
+        false
+      );
+
       /* Definir los targets y sus capas de video */
       const targets = [
         {
@@ -277,7 +341,7 @@
           anchor.group.add(plane);
         });
 
-        // Si es el target 1, agregamos partículas
+        // Si es el target 0, agregamos partículas
         if (index === 0) {
           particlesRef = createParticles();
           anchor.group.add(particlesRef);
