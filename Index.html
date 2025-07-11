@@ -126,72 +126,11 @@
 
       const anchor0 = mindarThree.addAnchor(0);
 
-      // Audio
-      const audio = new Audio("Audio/Bosque.mp3");
-      audio.loop = true;
-      audio.volume = 1.0;
-      audio.preload = "auto";
-
-      // Botón dentro del target
-      const buttonGeometry = new THREE.PlaneGeometry(0.3, 0.1);
-      const buttonMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-      const buttonMesh = new THREE.Mesh(buttonGeometry, buttonMaterial);
-      buttonMesh.position.set(0, -0.5, 0.1); // Debajo de las partículas
-      buttonMesh.name = "audioButton"; // importante
-
-      anchor0.group.add(buttonMesh); // donde anchor1 es el de index 1
-
-      /////////////////// RAYCAST BUTTON /////////////////
-
-      const raycaster = new THREE.Raycaster();
-      const pointer = new THREE.Vector2();
-
-      // Función de raycasting compartida
-      const handleInteraction = (clientX, clientY) => {
-        const bounds = renderer.domElement.getBoundingClientRect();
-        pointer.x = ((clientX - bounds.left) / bounds.width) * 2 - 1;
-        pointer.y = -((clientY - bounds.top) / bounds.height) * 2 + 1;
-
-        raycaster.setFromCamera(pointer, camera);
-        const intersects = raycaster.intersectObjects(scene.children, true);
-
-        for (let i = 0; i < intersects.length; i++) {
-          const obj = intersects[i].object;
-          if (obj.name === "audioButton") {
-            if (audio.paused) {
-              audio.play();
-              obj.material.color.set(0xff0000); // Activo
-            } else {
-              audio.pause();
-              obj.material.color.set(0x00fffff); // Inactivo
-            }
-            break;
-          }
-        }
-      };
-
-      // Touch para móviles
-      renderer.domElement.addEventListener(
-        "touchstart",
-        (event) => {
-          handleInteraction(event.touches[0].clientX, event.touches[0].clientY);
-        },
-        false
-      );
-
-      // Mouse para portátiles/PC
-      renderer.domElement.addEventListener(
-        "mousedown",
-        (event) => {
-          handleInteraction(event.clientX, event.clientY);
-        },
-        false
-      );
-
       /* Definir los targets y sus capas de video */
       const targets = [
         {
           index: 0,
+          audio: "Audio/PajarosSingle_ogg.ogg",
           layers: [
             {
               src: "Animations/Video01_Fondo.mp4",
@@ -203,11 +142,6 @@
               z: -0.01,
               chroma: "0x0f00da",
             },
-            {
-              src: "Animations/Video01_Frente.mp4",
-              z: -0.005,
-              chroma: "0x0f00da",
-            } /* ← antes 0.2 */,
           ],
         },
         {
@@ -223,11 +157,6 @@
               z: 0,
               chroma: "0x0f00da",
             },
-            {
-              src: "Animations/Video01_Frente.mp4",
-              z: 0.02,
-              chroma: "0x0f00da",
-            } /* ← antes 0.2 */,
           ],
         },
         {
@@ -318,9 +247,17 @@
 
       // Crear los targets y videos
       targets.forEach((target) => {
-        const { index, layers } = target;
+        const { index, layers, audio: audioSrc } = target;
         const anchor = mindarThree.addAnchor(index);
         const videos = [];
+
+          let audio = null;
+          if (audioSrc) {
+              audio = new Audio(audioSrc);
+              audio.loop = true;
+              audio.preload = "auto";
+              audio.crossOrigin = "anonymous";
+            }
 
         layers.forEach(({ src, z, chroma }) => {
           const video = document.createElement("video");
@@ -357,16 +294,21 @@
           anchor.onTargetFound = () => {
             target1Active = true;
             videos.forEach((v) => v.play());
+            if (audio) audio.play();
           };
 
           anchor.onTargetLost = () => {
             target1Active = false;
             videos.forEach((v) => v.pause());
+            if (audio) audio.pause();
           };
         } else {
           // Otros targets sin partículas
-          anchor.onTargetFound = () => videos.forEach((v) => v.play());
-          anchor.onTargetLost = () => videos.forEach((v) => v.pause());
+          anchor.onTargetFound = () => {videos.forEach((v) => v.play())
+            if (audio) audio.play();};
+          anchor.onTargetLost = () => {videos.forEach((v) => v.pause())
+              if (audio) audio.pause();};
+          
         }
       });
 
