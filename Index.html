@@ -116,7 +116,7 @@
       /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
-        imageTargetSrc: "TargetsMind/MultiTarget.mind",
+        imageTargetSrc: "TargetsMind/MultiTarget2.mind",
 
         /* ← suavizado para reducir jitter */
         filterMinCF: 0.001,
@@ -159,6 +159,17 @@
             },
           ],
         },
+        {
+          index: 2,
+          layers: [
+            {
+              src: "Animations/Video02.mp4",
+              z: -0.02,
+              chroma: "0x0f00da",
+            },
+          ],
+        },
+        
         {
           index: 3,
           layers: [
