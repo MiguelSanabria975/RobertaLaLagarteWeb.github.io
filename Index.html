@@ -53,7 +53,7 @@
           uniforms: {
             map: { value: texture },
             keyColor: { value: col },
-            similarity: { value: 0.15},
+            similarity: { value: 0.15 },
             smoothness: { value: 0.6 },
           },
           transparent: true,
@@ -169,11 +169,10 @@
             },
           ],
         },
-        
+
         {
           index: 3,
           layers: [
-          
             {
               src: "Animations/Video03_Mitad.mp4",
               z: 0.2,
@@ -188,7 +187,9 @@
         },
         {
           index: 5,
-          layers: [{ src: "Animations/Video05.mp4", z: 0.2, chroma: "0x0f00da" }],
+          layers: [
+            { src: "Animations/Video05.mp4", z: 0.2, chroma: "0x0f00da" },
+          ],
         },
         {
           index: 6,
@@ -198,7 +199,11 @@
               z: -0.02,
               chroma: "0x0f00da",
             },
-            { src: "Animations/Video06_Frente.mp4", z: 0.1, chroma: "0x0f00da" },
+            {
+              src: "Animations/Video06_Frente.mp4",
+              z: 0.1,
+              chroma: "0x0f00da",
+            },
           ],
         },
         {
@@ -226,31 +231,42 @@
         },
         {
           index: 14,
-          layers: [{ src: "Animations/Video15.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [{ src: "Animations/Video14.mp4", z: 0, chroma: "0x0f00da" }],
         },
         {
           index: 15,
-          layers: [{ src: "Animations/Video16.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [{ src: "Animations/Video15.mp4", z: 0, chroma: "0x0f00da" }],
         },
 
         {
           index: 16,
-          layers: [{ src: "Animations/Video17.mp4", z: 0.2, chroma: "0x0f00da" }],
-        },
-        {
-          index: 17,
-          layers: [{ src: "Animations/Video18.mp4", z: 0, chroma: "0x0f00da" }],
-        },
-        {
-          index: 18,
-          layers: [{ src: "Animations/Video19Fondo.mp4", z: 0, chroma: "0x0f00da" },
-            { src: "Animations/Video19Frente.mp4", z: 0.5, chroma: "0x0f00da" }
+          layers: [
+            { src: "Animations/Video16.mp4", z: 0.2, chroma: "0x0f00da" },
           ],
         },
         {
+          index: 17,
+          layers: [{ src: "Animations/Video17.mp4", z: 0, chroma: "0x0f00da" }],
+        },
+        {
+          index: 18,
+          layers: [{ src: "Animations/Video18.mp4", z: 0, chroma: "0x0f00da" }],
+        },
+        {
+          index: 19,
+          layers: [{ src: "Animations/Video19.mp4", z: 0, chroma: "0x0f00da" }],
+        },
+        {
           index: 20,
-          layers: [{ src: "Animations/Video21.mp4", z: 0, chroma: "0x0f00da" }],
-        }
+          layers: [
+            { src: "Animations/Video20Fondo.mp4", z: 0, chroma: "0x0f00da" },
+            { src: "Animations/Video20Frente.mp4", z: 0.5, chroma: "0x0f00da" },
+          ],
+        },
+        {
+          index: 22,
+          layers: [{ src: "Animations/Video22.mp4", z: 0, chroma: "0x0f00da" }],
+        },
       ];
 
       let particlesRef = null;
@@ -262,13 +278,13 @@
         const anchor = mindarThree.addAnchor(index);
         const videos = [];
 
-          let audio = null;
-          if (audioSrc) {
-              audio = new Audio(audioSrc);
-              audio.loop = true;
-              audio.preload = "auto";
-              audio.crossOrigin = "anonymous";
-            }
+        let audio = null;
+        if (audioSrc) {
+          audio = new Audio(audioSrc);
+          audio.loop = true;
+          audio.preload = "auto";
+          audio.crossOrigin = "anonymous";
+        }
 
         layers.forEach(({ src, z, chroma }) => {
           const video = document.createElement("video");
@@ -321,11 +337,14 @@
           };
         } else {
           // Otros targets sin partículas
-          anchor.onTargetFound = () => {videos.forEach((v) => v.play())
-            if (audio) audio.play();};
-          anchor.onTargetLost = () => {videos.forEach((v) => v.pause())
-              if (audio) audio.pause();};
-          
+          anchor.onTargetFound = () => {
+            videos.forEach((v) => v.play());
+            if (audio) audio.play();
+          };
+          anchor.onTargetLost = () => {
+            videos.forEach((v) => v.pause());
+            if (audio) audio.pause();
+          };
         }
       });
 
