@@ -166,7 +166,9 @@
           layers: [
             {
               src: "Animations/Video02.mp4",
-              z: -0.02,
+              z: 0.1,
+              x: -0.05,
+              scale: 1.2,
               chroma: "0x0f00da",
             },
           ],
@@ -178,7 +180,8 @@
           layers: [
             {
               src: "Animations/Video03_Mitad.mp4",
-              z: 0.2,
+
+              z: 0,
               chroma: "0x0f00da",
             },
             {
@@ -229,6 +232,9 @@
             {
               src: "Animations/Video10.mp4",
               z: 0.02,
+              y: 0.1,
+              x: 0.1,
+              scale: 1.5,
               chroma: "0x0f00da",
             },
           ],
@@ -236,7 +242,14 @@
 
         {
           index: 11,
-          layers: [{ src: "Animations/Video11.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video11.mp4",
+              z: 0.1,
+              scale: 1.1,
+              chroma: "0x0f00da",
+            },
+          ],
         },
         {
           index: 13,
@@ -246,11 +259,28 @@
         },
         {
           index: 14,
-          layers: [{ src: "Animations/Video14.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video14.mp4",
+              z: 0,
+              y: 0.1,
+              scale: 1.3,
+              chroma: "0x0f00da",
+            },
+          ],
         },
         {
           index: 15,
-          layers: [{ src: "Animations/Video15.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video15.mp4",
+              z: 0,
+              x: -0.1,
+              y: 0.1,
+              scale: 1.2,
+              chroma: "0x0f00da",
+            },
+          ],
         },
 
         {
@@ -278,7 +308,7 @@
             { src: "Animations/Video20Frente.mp4", z: 0.2, chroma: "0x0f00da" },
           ],
         },
-       {
+        {
           index: 21,
           layers: [{ src: "Animations/Video21.mp4", z: 0, chroma: "0x0f00da" }],
         },
@@ -294,9 +324,18 @@
           index: 26,
           layers: [{ src: "Animations/Video26.mp4", z: 0, chroma: "0x0f00da" }],
         },
-      {
+        {
           index: 29,
-          layers: [{ src: "Animations/Video29.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video29.mp4",
+              z: 0,
+              scale: 1.2,
+              y: 0.1,
+              x: -0.1,
+              chroma: "0x0f00da",
+            },
+          ],
         },
       ];
 
@@ -317,7 +356,7 @@
           audio.crossOrigin = "anonymous";
         }
 
-        layers.forEach(({ src, z, chroma }) => {
+        layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
           const video = document.createElement("video");
           video.src = src;
           video.crossOrigin = "anonymous";
@@ -346,7 +385,9 @@
           }
 
           const plane = new THREE.Mesh(geometry, material);
-          plane.position.z = z;
+          plane.position.set(x, y, z);
+          plane.scale.set(scale, scale, 1);
+
           anchor.group.add(plane);
         });
 
