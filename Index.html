@@ -493,19 +493,37 @@
 
             for (let i = 0; i < positions.length; i += 3) {
               const idx = i / 3;
+
+              // 🌊 Espuma (subida lenta y reaparición)
               if (target.index === 0) {
-                // 🌊 Espuma (subida lenta y reaparición)
-                positions[i + 1] += 0.02 * Math.sin(t + idx);
-                if (positions[i + 1] > 0.15) positions[i + 1] = -0.1;
-              }
-              if (target.index === 1) {
-                // 🪰 Libélulas (movimiento más errático)
-                positions[i] += 0.002 * Math.sin(t * 0.8 + i);
-                positions[i + 1] += 0.002 * Math.cos(t * 1.2 + i);
-              }
-            }
-            target.particlesRef.geometry.attributes.position.needsUpdate = true;
+                
+              positions[i + 1] += 0.002 + 0.001 * Math.sin(t + idx); // Sube más rápido
+          positions[i] += 0.0005 * Math.sin(t * 2 + idx); // Pequeña oscilación en X
+          
+          // Reaparecer burbuja abajo
+          if (positions[i + 1] > 0.2) {
+            positions[i + 1] = -0.1;
+            positions[i] = (Math.random() - 0.5) * 0.8;
           }
+        }
+
+         // 🪰 Libélulas (movimiento más errático)
+              if (target.index === 1) {
+               
+                 positions[i] += 0.0025 * Math.sin(t * 1.5 + idx); // Oscilación amplia en X
+          positions[i + 1] += 0.002 * Math.cos(t * 1.2 + idx * 0.5); // Oscilación suave en Y
+          positions[i + 2] += 0.001 * Math.sin(t * 2 + idx); // Variación ligera en Z
+        }
+      }
+
+      target.particlesRef.geometry.attributes.position.needsUpdate = true;
+
+      // 🪰 Aleteo de libélulas simulando alas
+      if (target.index === 1) {
+        const scaleFactor = 1 + 0.2 * Math.sin(t * 10); // Oscilación rápida
+        target.particlesRef.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      }
+    }
         });
       };
 
