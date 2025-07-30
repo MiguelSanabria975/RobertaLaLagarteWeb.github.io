@@ -93,8 +93,8 @@
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
         for (let i = 0; i < count; i++) {
-          positions[i * 3] = (Math.random() - 0.5) * 0.7;
-          positions[i * 3 + 1] = (Math.random() - 0.5) * 0.7;
+          positions[i * 3] = (Math.random() - 0.5) * 0.5;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
           positions[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
         }
         geometry.setAttribute(
@@ -123,7 +123,7 @@
         for (let i = 0; i < count; i++) {
           positions[i * 3] = (Math.random() - 0.5) * 0.8; // X disperso
           positions[i * 3 + 1] = (Math.random() - 0.5) * 0.2; // Y más compacto
-          positions[i * 3 + 2] = (Math.random() - 0.5) * 0.1; // Z ligero
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5; // Z ligero
         }
 
         geometry.setAttribute(
@@ -132,10 +132,10 @@
         );
 
         const material = new THREE.PointsMaterial({
-          size: 1,
+          size: 10,
           color: 0x33cfff,
           transparent: true,
-          opacity: 0.7,
+          opacity: 1,
           depthWrite: false,
           blending: THREE.AdditiveBlending,
         });
@@ -427,43 +427,43 @@
         });
 
         // Si es el target 0, agregamos partículas
-       
+
         if (index === 0) {
-  const foamParticles = createFoamParticles();
-  target.particlesRef = foamParticles; // 👈 Guardar referencia en el objeto target
-  anchor.group.add(foamParticles);
+          const foamParticles = createFoamParticles();
+          foamParticles.position.y -= 0.2; //  Baja toda la espuma
+          target.particlesRef = foamParticles; //  Guardar referencia en el objeto target
+          anchor.group.add(foamParticles);
 
-  anchor.onTargetFound = () => {
-    target1Active = true;
-    videos.forEach((v) => v.play());
-    if (audio) audio.play();
-  };
+          anchor.onTargetFound = () => {
+            target1Active = true;
+            videos.forEach((v) => v.play());
+            if (audio) audio.play();
+          };
 
-  anchor.onTargetLost = () => {
-    target1Active = false;
-    videos.forEach((v) => v.pause());
-    if (audio) audio.pause();
-  };
-}
+          anchor.onTargetLost = () => {
+            target1Active = false;
+            videos.forEach((v) => v.pause());
+            if (audio) audio.pause();
+          };
+        }
 
-if (index === 1) {
-  const dragonflyParticles = createParticles();
-  target.particlesRef = dragonflyParticles; // 👈 Guardar referencia en el objeto target
-  anchor.group.add(dragonflyParticles);
+        if (index === 1) {
+          const dragonflyParticles = createParticles();
+          target.particlesRef = dragonflyParticles; // Guardar referencia en el objeto target
+          anchor.group.add(dragonflyParticles);
 
-  anchor.onTargetFound = () => {
-    target1Active = true;
-    videos.forEach((v) => v.play());
-    if (audio) audio.play();
-  };
+          anchor.onTargetFound = () => {
+            target1Active = true;
+            videos.forEach((v) => v.play());
+            if (audio) audio.play();
+          };
 
-  anchor.onTargetLost = () => {
-    target1Active = false;
-    videos.forEach((v) => v.pause());
-    if (audio) audio.pause();
-  };
-}
-
+          anchor.onTargetLost = () => {
+            target1Active = false;
+            videos.forEach((v) => v.pause());
+            if (audio) audio.pause();
+          };
+        }
       });
 
       // Animación para partículas tipo luciérnagas
@@ -480,34 +480,36 @@ if (index === 1) {
 
               // 🌊 Espuma (subida lenta y reaparición)
               if (target.index === 0) {
-                
-              positions[i + 1] += 0.002 + 0.001 * Math.sin(t + idx); // Sube más rápido
-          positions[i] += 0.0005 * Math.sin(t * 2 + idx); // Pequeña oscilación en X
-          
-          // Reaparecer burbuja abajo
-          if (positions[i + 1] > 0.2) {
-            positions[i + 1] = -0.1;
-            positions[i] = (Math.random() - 0.5) * 0.8;
-          }
-        }
+                positions[i + 1] += 0.002 + 0.001 * Math.sin(t + idx); // Sube más rápido
+                positions[i] += 0.0005 * Math.sin(t * 2 + idx); // Pequeña oscilación en X
 
-         // 🪰 Libélulas (movimiento más errático)
+                // Reaparecer burbuja abajo
+                if (positions[i + 1] > 0.2) {
+                  positions[i + 1] = -0.1;
+                  positions[i] = (Math.random() - 0.5) * 0.8;
+                }
+              }
+
+              // 🪰 Libélulas (movimiento más errático)
               if (target.index === 1) {
-               
-                 positions[i] += 0.0025 * Math.sin(t * 1.5 + idx); // Oscilación amplia en X
-          positions[i + 1] += 0.002 * Math.cos(t * 1.2 + idx * 0.5); // Oscilación suave en Y
-          positions[i + 2] += 0.001 * Math.sin(t * 2 + idx); // Variación ligera en Z
-        }
-      }
+                positions[i] += 0.0025 * Math.sin(t * 1.5 + idx); // Oscilación amplia en X
+                positions[i + 1] += 0.002 * Math.cos(t * 1.2 + idx * 0.5); // Oscilación suave en Y
+                positions[i + 2] += 0.001 * Math.sin(t * 2 + idx); // Variación ligera en Z
+              }
+            }
 
-      target.particlesRef.geometry.attributes.position.needsUpdate = true;
+            target.particlesRef.geometry.attributes.position.needsUpdate = true;
 
-      // 🪰 Aleteo de libélulas simulando alas
-      if (target.index === 1) {
-        const scaleFactor = 1 + 0.2 * Math.sin(t * 10); // Oscilación rápida
-        target.particlesRef.scale.set(scaleFactor, scaleFactor, scaleFactor);
-      }
-    }
+            // 🪰 Aleteo de libélulas simulando alas
+            if (target.index === 1) {
+              const scaleFactor = 1 + 0.1 * Math.sin(t * 0.3); // Oscilación rápida
+              target.particlesRef.scale.set(
+                scaleFactor,
+                scaleFactor,
+                scaleFactor
+              );
+            }
+          }
         });
       };
 
