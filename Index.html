@@ -427,59 +427,45 @@
         });
 
         // Si es el target 0, agregamos partículas
+       
         if (index === 0) {
-          particlesRef = createFoamParticles();
-          anchor.group.add(particlesRef);
+  const foamParticles = createFoamParticles();
+  target.particlesRef = foamParticles; // 👈 Guardar referencia en el objeto target
+  anchor.group.add(foamParticles);
 
-          anchor.onTargetFound = () => {
-            target1Active = true;
-            videos.forEach((v) => v.play());
-            if (audio) audio.play();
-          };
+  anchor.onTargetFound = () => {
+    target1Active = true;
+    videos.forEach((v) => v.play());
+    if (audio) audio.play();
+  };
 
-          anchor.onTargetLost = () => {
-            target1Active = false;
-            videos.forEach((v) => v.pause());
-            if (audio) audio.pause();
-          };
-        } else {
-          // Otros targets sin partículas
-          anchor.onTargetFound = () => {
-            videos.forEach((v) => v.play());
-            if (audio) audio.play();
-          };
-          anchor.onTargetLost = () => {
-            videos.forEach((v) => v.pause());
-            if (audio) audio.pause();
-          };
-        }
+  anchor.onTargetLost = () => {
+    target1Active = false;
+    videos.forEach((v) => v.pause());
+    if (audio) audio.pause();
+  };
+}
 
-        if (index === 1) {
-          particlesRef = createParticles();
-          anchor.group.add(particlesRef);
+if (index === 1) {
+  const dragonflyParticles = createParticles();
+  target.particlesRef = dragonflyParticles; // 👈 Guardar referencia en el objeto target
+  anchor.group.add(dragonflyParticles);
 
-          anchor.onTargetFound = () => {
-            target1Active = true;
-            videos.forEach((v) => v.play());
-            if (audio) audio.play();
-          };
+  anchor.onTargetFound = () => {
+    target1Active = true;
+    videos.forEach((v) => v.play());
+    if (audio) audio.play();
+  };
 
-          anchor.onTargetLost = () => {
-            target1Active = false;
-            videos.forEach((v) => v.pause());
-            if (audio) audio.pause();
-          };
-        } else {
-          // Otros targets sin partículas
-          anchor.onTargetFound = () => {
-            videos.forEach((v) => v.play());
-            if (audio) audio.play();
-          };
-          anchor.onTargetLost = () => {
-            videos.forEach((v) => v.pause());
-            if (audio) audio.pause();
-          };
-        }
+  anchor.onTargetLost = () => {
+    target1Active = false;
+    videos.forEach((v) => v.pause());
+    if (audio) audio.pause();
+  };
+}
+
+
+
       });
 
       // Animación para partículas tipo luciérnagas
