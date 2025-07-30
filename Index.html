@@ -88,8 +88,6 @@
 
       // Función para crear partículas
 
-     
-
       const createParticles = () => {
         const count = 150;
         const geometry = new THREE.BufferGeometry();
@@ -116,32 +114,34 @@
         return new THREE.Points(geometry, material);
       };
 
-       // 🫧 Espuma de agua azul
-const createFoamParticles = () => {
-  const count = 300;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
+      // 🫧 Espuma de agua azul
+      const createFoamParticles = () => {
+        const count = 300;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
 
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 0.8; // X disperso
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 0.2; // Y más compacto
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 0.1; // Z ligero
-  }
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 0.8; // X disperso
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 0.2; // Y más compacto
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 0.1; // Z ligero
+        }
 
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
 
-  const material = new THREE.PointsMaterial({
-    size: 0.02,
-    color: 0x33cfff,
-    transparent: true,
-    opacity: 0.7,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
+        const material = new THREE.PointsMaterial({
+          size: 1,
+          color: 0x33cfff,
+          transparent: true,
+          opacity: 0.7,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
 
-  return new THREE.Points(geometry, material);
-};
-
+        return new THREE.Points(geometry, material);
+      };
 
       /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
@@ -453,32 +453,61 @@ const createFoamParticles = () => {
             if (audio) audio.pause();
           };
         }
+
+        if (index === 1) {
+          particlesRef = createParticles();
+          anchor.group.add(particlesRef);
+
+          anchor.onTargetFound = () => {
+            target1Active = true;
+            videos.forEach((v) => v.play());
+            if (audio) audio.play();
+          };
+
+          anchor.onTargetLost = () => {
+            target1Active = false;
+            videos.forEach((v) => v.pause());
+            if (audio) audio.pause();
+          };
+        } else {
+          // Otros targets sin partículas
+          anchor.onTargetFound = () => {
+            videos.forEach((v) => v.play());
+            if (audio) audio.play();
+          };
+          anchor.onTargetLost = () => {
+            videos.forEach((v) => v.pause());
+            if (audio) audio.pause();
+          };
+        }
       });
 
       // Animación para partículas tipo luciérnagas
-     const animateParticles = () => {
-  const t = performance.now() * 0.001;
+      const animateParticles = () => {
+        const t = performance.now() * 0.001;
 
-  targets.forEach(target => {
-    if (target.particlesRef) {
-      const positions = target.particlesRef.geometry.attributes.position.array;
+        targets.forEach((target) => {
+          if (target.particlesRef) {
+            const positions =
+              target.particlesRef.geometry.attributes.position.array;
 
-      for (let i = 0; i < positions.length; i += 3) {
-        if (target.index === 0) {
-          // 🌊 Espuma (subida lenta y reaparición)
-          positions[i + 1] += 0.001 * Math.sin(t + i); 
-          if (positions[i + 1] > 0.15) positions[i + 1] = -0.1;
-        }
-        if (target.index === 1) {
-          // 🪰 Libélulas (movimiento más errático)
-          positions[i] += 0.002 * Math.sin(t * 0.8 + i);
-          positions[i + 1] += 0.002 * Math.cos(t * 1.2 + i);
-        }
-      }
-      target.particlesRef.geometry.attributes.position.needsUpdate = true;
-    }
-  });
-};
+            for (let i = 0; i < positions.length; i += 3) {
+              const idx = i / 3;
+              if (target.index === 0) {
+                // 🌊 Espuma (subida lenta y reaparición)
+                positions[i + 1] += 0.02 * Math.sin(t + idx);
+                if (positions[i + 1] > 0.15) positions[i + 1] = -0.1;
+              }
+              if (target.index === 1) {
+                // 🪰 Libélulas (movimiento más errático)
+                positions[i] += 0.002 * Math.sin(t * 0.8 + i);
+                positions[i + 1] += 0.002 * Math.cos(t * 1.2 + i);
+              }
+            }
+            target.particlesRef.geometry.attributes.position.needsUpdate = true;
+          }
+        });
+      };
 
       const start = async () => {
         await mindarThree.start();
