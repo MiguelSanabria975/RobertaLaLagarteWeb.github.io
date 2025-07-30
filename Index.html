@@ -87,6 +87,9 @@
       };
 
       // Función para crear partículas
+
+     
+
       const createParticles = () => {
         const count = 150;
         const geometry = new THREE.BufferGeometry();
@@ -112,6 +115,33 @@
 
         return new THREE.Points(geometry, material);
       };
+
+       // 🫧 Espuma de agua azul
+const createFoamParticles = () => {
+  const count = 300;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 0.8; // X disperso
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 0.2; // Y más compacto
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 0.1; // Z ligero
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.02,
+    color: 0x33cfff,
+    transparent: true,
+    opacity: 0.7,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  return new THREE.Points(geometry, material);
+};
+
 
       /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
@@ -350,6 +380,7 @@
         const { index, layers, audio: audioSrc } = target;
         const anchor = mindarThree.addAnchor(index);
         const videos = [];
+        let particles = null;
 
         let audio = null;
         if (audioSrc) {
@@ -359,6 +390,7 @@
           audio.crossOrigin = "anonymous";
         }
 
+        // Ajuates de las capas de video
         layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
           const video = document.createElement("video");
           video.src = src;
@@ -396,7 +428,7 @@
 
         // Si es el target 0, agregamos partículas
         if (index === 0) {
-          particlesRef = createParticles();
+          particlesRef = createFoamParticles();
           anchor.group.add(particlesRef);
 
           anchor.onTargetFound = () => {
@@ -424,25 +456,29 @@
       });
 
       // Animación para partículas tipo luciérnagas
-      const animateParticles = () => {
-        if (particlesRef && target1Active) {
-          const positions = particlesRef.geometry.attributes.position.array;
-          const t = performance.now() * 0.001;
+     const animateParticles = () => {
+  const t = performance.now() * 0.001;
 
-          for (let i = 0; i < positions.length; i += 3) {
-            const baseIndex = i / 3;
+  targets.forEach(target => {
+    if (target.particlesRef) {
+      const positions = target.particlesRef.geometry.attributes.position.array;
 
-            // Movimiento suave y flotante en X e Y, como luciérnagas
-            positions[i] += 0.001 * Math.sin(t + baseIndex); // X
-            positions[i + 1] += 0.001 * Math.cos(t * 1.2 + baseIndex); // Y
-
-            // Opcional: rebote sutil en Z (profundidad)
-            // positions[i + 2] += 0.001 * Math.sin(t + baseIndex * 0.5);
-          }
-
-          particlesRef.geometry.attributes.position.needsUpdate = true;
+      for (let i = 0; i < positions.length; i += 3) {
+        if (target.index === 0) {
+          // 🌊 Espuma (subida lenta y reaparición)
+          positions[i + 1] += 0.001 * Math.sin(t + i); 
+          if (positions[i + 1] > 0.15) positions[i + 1] = -0.1;
         }
-      };
+        if (target.index === 1) {
+          // 🪰 Libélulas (movimiento más errático)
+          positions[i] += 0.002 * Math.sin(t * 0.8 + i);
+          positions[i + 1] += 0.002 * Math.cos(t * 1.2 + i);
+        }
+      }
+      target.particlesRef.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+};
 
       const start = async () => {
         await mindarThree.start();
