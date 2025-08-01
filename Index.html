@@ -143,6 +143,53 @@
         return new THREE.Points(geometry, material);
       };
 
+      // Partículas de fuego optimizadas
+      const createFireParticles = () => {
+        const count = 200;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+
+        for (let i = 0; i < count; i++) {
+          // Distribución tipo cono
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * 0.15; // Más disperso para igualar tamaño
+          const height = Math.random() * 0.3; // Altura similar a otras partículas
+
+          positions[i * 3] = Math.cos(angle) * radius;
+          positions[i * 3 + 1] = height;
+          positions[i * 3 + 2] = Math.sin(angle) * radius;
+
+          // Colores fuego (rojo-naranja-amarillo)
+          const color = new THREE.Color();
+          color.setHSL(
+            0.05 + Math.random() * 0.1,
+            1,
+            0.5 + Math.random() * 0.2
+          );
+          colors[i * 3] = color.r;
+          colors[i * 3 + 1] = color.g;
+          colors[i * 3 + 2] = color.b;
+        }
+
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.PointsMaterial({
+          size: 30, // Igual a otras partículas
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+
+        return new THREE.Points(geometry, material);
+      };
+
       /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
@@ -426,44 +473,36 @@
           anchor.group.add(plane);
         });
 
-        // Si es el target 0, agregamos partículas
-
+        // Partículas por target específico
         if (index === 0) {
           const foamParticles = createFoamParticles();
-          foamParticles.position.y -= 0.2; //  Baja toda la espuma
-          target.particlesRef = foamParticles; //  Guardar referencia en el objeto target
+          foamParticles.position.y -= 0.1;
           anchor.group.add(foamParticles);
-
-          anchor.onTargetFound = () => {
-            target1Active = true;
-            videos.forEach((v) => v.play());
-            if (audio) audio.play();
-          };
-
-          anchor.onTargetLost = () => {
-            target1Active = false;
-            videos.forEach((v) => v.pause());
-            if (audio) audio.pause();
-          };
+          target.particlesRef = foamParticles;
         }
-
         if (index === 1) {
           const dragonflyParticles = createParticles();
-          target.particlesRef = dragonflyParticles; // Guardar referencia en el objeto target
           anchor.group.add(dragonflyParticles);
-
-          anchor.onTargetFound = () => {
-            target1Active = true;
-            videos.forEach((v) => v.play());
-            if (audio) audio.play();
-          };
-
-          anchor.onTargetLost = () => {
-            target1Active = false;
-            videos.forEach((v) => v.pause());
-            if (audio) audio.pause();
-          };
+          target.particlesRef = dragonflyParticles;
         }
+
+        if (index === 14) {
+          const fireParticles = createFireParticles();
+          fireParticles.position.set(0.08, -0.1, 0.2); // Ajusta posición
+          anchor.group.add(fireParticles);
+          target.particlesRef = fireParticles;
+        }
+
+        // Eventos target
+        anchor.onTargetFound = () => {
+          videos.forEach((v) => v.play());
+          if (audio) audio.play();
+        };
+
+        anchor.onTargetLost = () => {
+          videos.forEach((v) => v.pause());
+          if (audio) audio.pause();
+        };
       });
 
       // Animación para partículas tipo luciérnagas
@@ -471,9 +510,10 @@
         const t = performance.now() * 0.001;
 
         targets.forEach((target) => {
-          if (target.particlesRef) {
+          if (target.index === 2 && target.particlesRef) {
             const positions =
               target.particlesRef.geometry.attributes.position.array;
+            animateFire(target.particlesRef);
 
             for (let i = 0; i < positions.length; i += 3) {
               const idx = i / 3;
@@ -509,6 +549,35 @@
                 scaleFactor
               );
             }
+          }
+
+          // 🔄 Animación fuego
+          const animateFire = (fireParticles) => {
+            if (!fireParticles) return;
+
+            const positions = fireParticles.geometry.attributes.position.array;
+            const count = positions.length / 3;
+
+            for (let i = 0; i < count; i++) {
+              const idx = i * 3;
+
+              // Subida suave
+              positions[idx + 1] += 0.003;
+
+              // Movimiento aleatorio horizontal
+              positions[idx] += (Math.random() - 0.5) * 0.001;
+              positions[idx + 2] += (Math.random() - 0.5) * 0.001;
+
+              // Reaparecer abajo
+              if (positions[idx + 1] > 0.3) {
+                positions[idx + 1] = 0;
+              }
+            }
+
+            fireParticles.geometry.attributes.position.needsUpdate = true;
+          };
+          if (target.index === 14) {
+            animateFire(target.particlesRef);
           }
         });
       };
