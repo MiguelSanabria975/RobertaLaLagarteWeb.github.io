@@ -210,11 +210,10 @@
           audio: "Audio/PajarosSingle_ogg.ogg",
           layers: [
             {
-              src: "Animations/Video00.mp4",
+              src: "Animations/Video00_ConFondo.mp4",
               z: 0,
-              y: 0.1,
+              y: 0,
               scale: 1.15,
-              chroma: "0x0f00da",
             },
             {
               src: "Animations/Video00_Titulo.mp4",
@@ -229,8 +228,9 @@
           audio: "Audio/Sonido_Video01.ogg",
           layers: [
             {
-              src: "Animations/Video01_Fondo.mp4",
+              src: "Animations/Video01_FondoConFondo.mp4",
               z: -0.02,
+              scale: 1.1,
               chroma: "0x0f00da",
             },
             {
@@ -605,6 +605,7 @@
         // Eventos target
         anchor.onTargetFound = () => {
           videos.forEach((v) => v.play());
+
           if (audio) audio.play();
         };
 
