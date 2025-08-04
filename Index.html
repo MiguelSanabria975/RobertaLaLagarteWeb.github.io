@@ -551,7 +551,7 @@
       targets.forEach((target) => {
         const { index, layers, audio: audioSrc } = target;
         const anchor = mindarThree.addAnchor(index);
-        const videos = [];
+        target.videos = []; // 🔥 guardamos videos aquí
         let particles = null;
 
         let audio = null;
@@ -563,18 +563,30 @@
         }
 
         // Función para crear material de video con fallback a imagen
-        const createVideoOrImageMaterial = (src, chromaKey) => {
+        function createVideoMaterial(src, chroma) {
           const video = document.createElement("video");
-          video.src = src; // Ruta única optimizada
+          video.src = src;
           video.crossOrigin = "anonymous";
           video.loop = true;
-          video.muted = true;
-          video.playsInline = true;
-          video.preload = "auto";
+          video.muted = true; // 🔥 obligatorio
+          video.playsInline = true; // 🔥 evita fullscreen iOS
+          video.autoplay = true;
+          video.preload = "auto"; // 🔥 carga anticipada
+          video.setAttribute("webkit-playsinline", "true"); // compatibilidad iOS
+
+          // Dispara play al cargar
+          video.addEventListener("canplaythrough", () => {
+            video
+              .play()
+              .catch((e) => console.log("No pudo iniciar autoplay:", e));
+          });
 
           const texture = new THREE.VideoTexture(video);
-          let material;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.format = THREE.RGBAFormat;
 
+          let material;
           if (chromaKey) {
             const key = Number(chromaKey.replace("#", "0x"));
             material = makeChromaMaterial(texture, key);
@@ -604,19 +616,26 @@
           };
 
           return { material, video };
-        };
+        }
 
         // Ajuates de las capas de video
         layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
-          const video = document.createElement("video");
-          video.src = src;
-          video.crossOrigin = "anonymous";
-          video.loop = true;
-          video.muted = true;
-          video.playsInline = true;
-          videos.push(video);
+          const videoElement = document.createElement("video");
+          videoElement.crossOrigin = "anonymous";
+          videoElement.loop = true;
+          videoElement.muted = true; // 🔥 necesario para autoplay
+          videoElement.playsInline = true;
+          videoElement.autoplay = false;
+          videoElement.preload = "auto";
+          videoElement.src = src;
 
-          const texture = new THREE.VideoTexture(video);
+          // Guardamos referencia
+          target.videos.push(videoElement);
+
+          const texture = new THREE.VideoTexture(videoElement);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+
           const geometry = new THREE.PlaneGeometry(0.9, 0.8);
           const uv = geometry.attributes.uv.array;
           uv[0] = 0.01; // U min
@@ -635,10 +654,12 @@
             material = new THREE.MeshBasicMaterial({ map: texture });
           }
 
-          const plane = new THREE.Mesh(geometry, material);
+          const plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.9, 0.8),
+            material
+          );
           plane.position.set(x, y, z);
           plane.scale.set(scale, scale, 1);
-
           anchor.group.add(plane);
         });
 
@@ -662,15 +683,17 @@
           target.particlesRef = fireParticles;
         }
 
-        // Eventos target
+        // Eventos target (CUANDO ENCUENTRA EL TARGET)
         anchor.onTargetFound = () => {
-          videos.forEach((v) => v.play());
-
+          target.videos.forEach((v) => {
+            v.play().catch((e) => console.warn("No se pudo iniciar video:", e));
+          });
           if (audio) audio.play();
         };
 
+        // Eventos target (CUANDO SE PIERDE EL TARGET)
         anchor.onTargetLost = () => {
-          videos.forEach((v) => v.pause());
+          target.videos.forEach((v) => v.pause());
           if (audio) audio.pause();
         };
       });
