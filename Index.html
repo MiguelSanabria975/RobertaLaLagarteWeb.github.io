@@ -69,31 +69,31 @@
           },
           transparent: true,
           vertexShader: `
-            varying vec2 vUv;
-            void main() {
-              vUv = uv;
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-            }
-          `,
+                  varying vec2 vUv;
+                  void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+                  }
+                `,
           fragmentShader: `
-            uniform sampler2D map;
-            uniform vec3 keyColor;
-            uniform float similarity;
-            uniform float smoothness;
-            varying vec2 vUv;
-            void main() {
-              vec4 tex = texture2D(map, vUv);
-              float Y = dot(tex.rgb, vec3(0.2989, 0.5866, 0.1145));
-              float Cr = tex.r - Y;
-              float Cb = tex.b - Y;
-              float Yk = dot(keyColor.rgb, vec3(0.2989,0.5866,0.1145));
-              float Crk = keyColor.r - Yk;
-              float Cbk = keyColor.b - Yk;
-              float diff = distance(vec2(Cr,Cb), vec2(Crk,Cbk));
-              float alpha = smoothstep(similarity, similarity+smoothness, diff);
-              gl_FragColor = vec4(tex.rgb, alpha);
-            }
-          `,
+                  uniform sampler2D map;
+                  uniform vec3 keyColor;
+                  uniform float similarity;
+                  uniform float smoothness;
+                  varying vec2 vUv;
+                  void main() {
+                    vec4 tex = texture2D(map, vUv);
+                    float Y = dot(tex.rgb, vec3(0.2989, 0.5866, 0.1145));
+                    float Cr = tex.r - Y;
+                    float Cb = tex.b - Y;
+                    float Yk = dot(keyColor.rgb, vec3(0.2989,0.5866,0.1145));
+                    float Crk = keyColor.r - Yk;
+                    float Cbk = keyColor.b - Yk;
+                    float diff = distance(vec2(Cr,Cb), vec2(Crk,Cbk));
+                    float alpha = smoothstep(similarity, similarity+smoothness, diff);
+                    gl_FragColor = vec4(tex.rgb, alpha);
+                  }
+                `,
         });
       };
 
@@ -545,155 +545,135 @@
       ];
 
       let particlesRef = null;
-      // let target1Active = false; /////// borrar si sirve
+      let target1Active = false; /////// borrar si sirve
 
-      // // Crear los targets y videos
-      // targets.forEach((target) => {
-      //   const { index, layers, audio: audioSrc } = target;
-      //   const anchor = mindarThree.addAnchor(index);
-      //   const videos = [];
-      //   let particles = null;
-
-      //   let audio = null;
-      //   if (audioSrc) {
-      //     audio = new Audio(audioSrc);
-      //     audio.loop = true;
-      //     audio.preload = "auto";
-      //     audio.crossOrigin = "anonymous";
-      //   }
-
-      //   // Ajuates de las capas de video
-      //   layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
-      //     const video = document.createElement("video");
-      //     video.src = src;
-      //     video.crossOrigin = "anonymous";
-      //     video.loop = true;
-      //     video.muted = true;
-      //     video.playsInline = true;
-      //     videos.push(video);
-
-      //     const texture = new THREE.VideoTexture(video);
-      //     const geometry = new THREE.PlaneGeometry(0.9, 0.8);
-      //     const uv = geometry.attributes.uv.array;
-      //     uv[0] = 0.01; // U min
-      //     uv[2] = 0.99; // U max
-      //     uv[4] = 0.01;
-      //     uv[6] = 0.99;
-      //     geometry.attributes.uv.needsUpdate = true;
-
-      //     /* ⇣ decide material según 'chroma' */
-      //     let material;
-
-      //     if (typeof chroma === "string" && chroma) {
-      //       const key = Number(chroma.replace("#", "0x"));
-      //       material = makeChromaMaterial(texture, key);
-      //     } else {
-      //       material = new THREE.MeshBasicMaterial({ map: texture });
-      //     }
-
-      //     const plane = new THREE.Mesh(geometry, material);
-      //     plane.position.set(x, y, z);
-      //     plane.scale.set(scale, scale, 1);
-
-      //     anchor.group.add(plane);
-      //   });
-
-      //   // Partículas por target específico
-      //   if (index === 0) {
-      //     const foamParticles = createFoamParticles();
-      //     foamParticles.position.y -= 0.1;
-      //     anchor.group.add(foamParticles);
-      //     target.particlesRef = foamParticles;
-      //   }
-      //   if (index === 1) {
-      //     const dragonflyParticles = createParticles();
-      //     anchor.group.add(dragonflyParticles);
-      //     target.particlesRef = dragonflyParticles;
-      //   }
-
-      //   if (index === 14) {
-      //     const fireParticles = createFireParticles();
-      //     fireParticles.position.set(0.08, -0.1, 0.2); // Ajusta posición
-      //     anchor.group.add(fireParticles);
-      //     target.particlesRef = fireParticles;
-      //   }
-
-      //   // Eventos target
-      //   anchor.onTargetFound = () => {
-      //     videos.forEach((v) => v.play());
-
-      //     if (audio) audio.play();
-      //   };
-
-      //   anchor.onTargetLost = () => {
-      //     videos.forEach((v) => v.pause());
-      //     if (audio) audio.pause();
-      //   };
-      // });
-
-      /* Crear targets con videos optimizados */
-      const createTarget = (target) => {
-        const anchor = mindarThree.addAnchor(target.index);
+      // Crear los targets y videos
+      targets.forEach((target) => {
+        const { index, layers, audio: audioSrc } = target;
+        const anchor = mindarThree.addAnchor(index);
         const videos = [];
-        let audio = null;
+        let particles = null;
 
-        if (target.audio) {
-          audio = new Audio(target.audio);
+        let audio = null;
+        if (audioSrc) {
+          audio = new Audio(audioSrc);
           audio.loop = true;
           audio.preload = "auto";
+          audio.crossOrigin = "anonymous";
         }
 
-        target.layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
+        // Función para crear material de video con fallback a imagen
+        const createVideoOrImageMaterial = (src, chromaKey) => {
           const video = document.createElement("video");
+          video.src = src; // Ruta única optimizada
           video.crossOrigin = "anonymous";
           video.loop = true;
           video.muted = true;
           video.playsInline = true;
-
-          // Seleccionar calidad de video
-          video.dataset.src = `${src}_${calidad}.mp4`;
+          video.preload = "auto";
 
           const texture = new THREE.VideoTexture(video);
-          const material = chroma
-            ? makeChromaMaterial(texture, Number(chroma))
-            : new THREE.MeshBasicMaterial({ map: texture });
+          let material;
 
-          const plane = new THREE.Mesh(sharedGeometry, material);
+          if (chromaKey) {
+            const key = Number(chromaKey.replace("#", "0x"));
+            material = makeChromaMaterial(texture, key);
+          } else {
+            material = new THREE.MeshBasicMaterial({ map: texture });
+          }
+
+          // Fallback: si no carga video, usar imagen
+          video.onerror = () => {
+            console.warn(
+              `⚠️ No se pudo cargar ${src}, usando imagen fallback.`
+            );
+            const imgTexture = new THREE.TextureLoader().load(
+              src.replace(".mp4", ".jpg"), // Imagen de respaldo
+              () => {
+                material.map = imgTexture;
+                material.needsUpdate = true;
+              }
+            );
+          };
+
+          // Intentar reproducir al estar listo
+          video.oncanplaythrough = () => {
+            video.play().catch((err) => {
+              console.warn("⚠️ No se pudo reproducir automáticamente:", err);
+            });
+          };
+
+          return { material, video };
+        };
+
+        // Ajuates de las capas de video
+        layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
+          const video = document.createElement("video");
+          video.src = src;
+          video.crossOrigin = "anonymous";
+          video.loop = true;
+          video.muted = true;
+          video.playsInline = true;
+          videos.push(video);
+
+          const texture = new THREE.VideoTexture(video);
+          const geometry = new THREE.PlaneGeometry(0.9, 0.8);
+          const uv = geometry.attributes.uv.array;
+          uv[0] = 0.01; // U min
+          uv[2] = 0.99; // U max
+          uv[4] = 0.01;
+          uv[6] = 0.99;
+          geometry.attributes.uv.needsUpdate = true;
+
+          /* ⇣ decide material según 'chroma' */
+          let material;
+
+          if (typeof chroma === "string" && chroma) {
+            const key = Number(chroma.replace("#", "0x"));
+            material = makeChromaMaterial(texture, key);
+          } else {
+            material = new THREE.MeshBasicMaterial({ map: texture });
+          }
+
+          const plane = new THREE.Mesh(geometry, material);
           plane.position.set(x, y, z);
           plane.scale.set(scale, scale, 1);
-          anchor.group.add(plane);
 
-          videos.push(video);
+          anchor.group.add(plane);
         });
 
+        // Partículas por target específico
+        if (index === 0) {
+          const foamParticles = createFoamParticles();
+          foamParticles.position.y -= 0.1;
+          anchor.group.add(foamParticles);
+          target.particlesRef = foamParticles;
+        }
+        if (index === 1) {
+          const dragonflyParticles = createParticles();
+          anchor.group.add(dragonflyParticles);
+          target.particlesRef = dragonflyParticles;
+        }
+
+        if (index === 14) {
+          const fireParticles = createFireParticles();
+          fireParticles.position.set(0.08, -0.1, 0.2); // Ajusta posición
+          anchor.group.add(fireParticles);
+          target.particlesRef = fireParticles;
+        }
+
+        // Eventos target
         anchor.onTargetFound = () => {
-          // Descargar otros videos
-          document.querySelectorAll("video").forEach((v) => {
-            if (!videos.includes(v)) {
-              v.pause();
-              v.removeAttribute("src");
-              v.load();
-            }
-          });
-          // Cargar y reproducir videos actuales
-          videos.forEach((video) => {
-            if (!video.src) video.src = video.dataset.src;
-            video.play();
-          });
+          videos.forEach((v) => v.play());
+
           if (audio) audio.play();
         };
 
         anchor.onTargetLost = () => {
-          videos.forEach((video) => {
-            video.pause();
-            video.removeAttribute("src");
-            video.load();
-          });
+          videos.forEach((v) => v.pause());
           if (audio) audio.pause();
         };
-      };
-
-      targets.forEach(createTarget);
+      });
 
       // 🔥 Animación de fuego
       const animateFire = (fireParticles) => {
