@@ -222,21 +222,22 @@
       const targets = [
         {
           index: 0,
-          //audio: "Audio/PajarosSingle_ogg.ogg",
+          audio: "Audio/PajarosSingle_ogg.ogg",
           layers: [
             {
-              src: "Animations/Video00Low.mp4",
+              src: "Animations/Video00_ConFondo.mp4",
               z: 0,
               y: 0,
-              scale: 1.15,
+              scale: 1.0,
               chroma: "0xDCCD00",
             },
-            // {
-            //   src: "Animations/Video00_Titulo.mp4",
-            //   z: 0.1,
-            //   y: 0.1,
-            //   chroma: "0x0f00da",
-            // },
+            {
+              src: "Animations/Video00_Titulo.mp4",
+              z: 0.1,
+              y: 0.1,
+              x: -0.1,
+              chroma: "0x0f00da",
+            },
           ],
         },
         {
@@ -547,37 +548,20 @@
       let particlesRef = null;
       let target1Active = false; /////// borrar si sirve
 
-      document.body.addEventListener(
-        "touchstart",
-        () => {
-          targets.forEach((target) => {
-            if (target.videos) {
-              target.videos.forEach((v) => {
-                v.play()
-                  .then(() => {
-                    v.pause();
-                    v.currentTime = 0.01; // 🔥 precalienta primer frame
-                  })
-                  .catch((e) => console.warn("Precarga falló:", e));
-              });
-            }
-          });
-        },
-        { once: true }
-      );
       // Crear los targets y videos
       targets.forEach((target) => {
         const { index, layers, audio: audioSrc } = target;
         const anchor = mindarThree.addAnchor(index);
-        target.videos = []; // 🔥 guardamos videos aquí
+        target.videos = []; //  guardamos videos aquí
         let particles = null;
+        target.audioObj = null;
 
-        let audio = null;
-        if (audioSrc) {
-          audio = new Audio(audioSrc);
+        if (target.audio) {
+          const audio = new Audio(target.audio);
           audio.loop = true;
           audio.preload = "auto";
           audio.crossOrigin = "anonymous";
+          target.audioObj = audio;
         }
 
         // Función para crear material de video con fallback a imagen
@@ -704,16 +688,43 @@
         // Eventos target (CUANDO ENCUENTRA EL TARGET)
         anchor.onTargetFound = () => {
           target.videos.forEach((v) => {
-            v.play().catch((e) => console.warn("No se pudo iniciar video:", e));
+            v.play().catch(() => {});
           });
-          if (audio) audio.play();
+          if (target.audioObj) target.audioObj.play().catch(() => {});
         };
 
         // Eventos target (CUANDO SE PIERDE EL TARGET)
         anchor.onTargetLost = () => {
           target.videos.forEach((v) => v.pause());
-          if (audio) audio.pause();
+          if (target.audioObj) target.audioObj.pause();
         };
+
+        /* Precarga en iPhone: desbloquear video+audio */
+        document.body.addEventListener(
+          "touchstart",
+          () => {
+            targets.forEach((t) => {
+              t.videos.forEach((v) => {
+                v.play()
+                  .then(() => {
+                    v.pause();
+                    v.currentTime = 0.01; // precalienta primer frame
+                  })
+                  .catch(() => {});
+              });
+              if (t.audioObj) {
+                t.audioObj
+                  .play()
+                  .then(() => {
+                    t.audioObj.pause();
+                    t.audioObj.currentTime = 0;
+                  })
+                  .catch(() => {});
+              }
+            });
+          },
+          { once: true }
+        );
       });
 
       // 🔥 Animación de fuego
