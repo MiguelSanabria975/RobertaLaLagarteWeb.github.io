@@ -666,10 +666,7 @@
             material = new THREE.MeshBasicMaterial({ map: texture });
           }
 
-          const plane = new THREE.Mesh(
-            geometry,
-            material
-          );
+          const plane = new THREE.Mesh(geometry, material);
           plane.position.set(x, y, z);
           plane.scale.set(scale, scale, 1);
           anchor.group.add(plane);
