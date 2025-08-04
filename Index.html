@@ -547,6 +547,24 @@
       let particlesRef = null;
       let target1Active = false; /////// borrar si sirve
 
+      document.body.addEventListener(
+        "touchstart",
+        () => {
+          targets.forEach((target) => {
+            if (target.videos) {
+              target.videos.forEach((v) => {
+                v.play()
+                  .then(() => {
+                    v.pause();
+                    v.currentTime = 0.01; // 🔥 precalienta primer frame
+                  })
+                  .catch((e) => console.warn("Precarga falló:", e));
+              });
+            }
+          });
+        },
+        { once: true }
+      );
       // Crear los targets y videos
       targets.forEach((target) => {
         const { index, layers, audio: audioSrc } = target;
