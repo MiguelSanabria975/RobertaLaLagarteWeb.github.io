@@ -97,44 +97,65 @@
         });
       };
 
-      // Función para crear partículas
+      /* ============================
+         FUNCIONES DE PARTÍCULAS
+         Aquí se están creando varias funciones para tener un estandar en la particulas
+      ============================ */
 
-      const createParticles = () => {
-        const count = 150;
+      function createRainParticles({
+        count = 50,
+        areaY = 0.5,
+        speed = 0.01,
+        color = 0xffffff,
+        depthX = 0.1, //control de profundidad en Z
+        depthZ = 0.2, //control de profundidad en Z
+        position = { x: 0, y: 0, z: 0 }, //posición global configurable
+      }) {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
+
         for (let i = 0; i < count; i++) {
-          positions[i * 3] = (Math.random() - 0.5) * 0.5;
-          positions[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
+          positions[i * 3] = (Math.random() - 0.5) * depthX;
+          positions[i * 3 + 1] = Math.random() * areaY;
           positions[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
         }
+
         geometry.setAttribute(
           "position",
           new THREE.BufferAttribute(positions, 3)
         );
 
         const material = new THREE.PointsMaterial({
-          size: 10,
-          color: 0xebe500,
+          size: 15,
+          color: color,
           transparent: true,
-          opacity: 0.5,
+          opacity: 0.8,
           depthWrite: false,
-          blending: THREE.AdditiveBlending, // 🔥 efecto glow aditivo
         });
 
-        return new THREE.Points(geometry, material);
-      };
+        const points = new THREE.Points(geometry, material);
+        points.position.set(position.x || 0, position.y || 0, position.z || 0);
+        points.userData = { type: "rain", speed, areaY, depthX, depthZ };
+        return points;
+      }
 
-      // 🫧 Espuma de agua azul
-      const createFoamParticles = () => {
-        const count = 300;
+      function createFoamParticles({
+        count = 50,
+        areaY = 0.3,
+        areaX = 1,
+        speed = 0.002,
+        color = 0x33cfff,
+        depthX = 0.8, // control de profundidad en Z
+        depthZ = 0.02, // control de profundidad en Z
+        position = { x: 0, y: 0, z: 0 }, // posición global configurable
+      }) {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
 
         for (let i = 0; i < count; i++) {
-          positions[i * 3] = (Math.random() - 0.5) * 0.8; // X disperso
-          positions[i * 3 + 1] = (Math.random() - 0.5) * 0.2; // Y más compacto
-          positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5; // Z ligero
+          positions[i * 3] = (Math.random() - 0.5) * depthX;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * areaY;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * depthZ;
         }
 
         geometry.setAttribute(
@@ -144,62 +165,89 @@
 
         const material = new THREE.PointsMaterial({
           size: 10,
-          color: 0x33cfff,
-          transparent: true,
-          opacity: 1,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-        });
-
-        return new THREE.Points(geometry, material);
-      };
-
-      // Partículas de fuego optimizadas
-      const createFireParticles = () => {
-        const count = 200;
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(count * 3);
-        const colors = new Float32Array(count * 3);
-
-        for (let i = 0; i < count; i++) {
-          // Distribución tipo cono
-          const angle = Math.random() * Math.PI * 2;
-          const radius = Math.random() * 0.15; // Más disperso para igualar tamaño
-          const height = Math.random() * 0.3; // Altura similar a otras partículas
-
-          positions[i * 3] = Math.cos(angle) * radius;
-          positions[i * 3 + 1] = height;
-          positions[i * 3 + 2] = Math.sin(angle) * radius;
-
-          // Colores fuego (rojo-naranja-amarillo)
-          const color = new THREE.Color();
-          color.setHSL(
-            0.05 + Math.random() * 0.1,
-            1,
-            0.5 + Math.random() * 0.2
-          );
-          colors[i * 3] = color.r;
-          colors[i * 3 + 1] = color.g;
-          colors[i * 3 + 2] = color.b;
-        }
-
-        geometry.setAttribute(
-          "position",
-          new THREE.BufferAttribute(positions, 3)
-        );
-        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-        const material = new THREE.PointsMaterial({
-          size: 30, // Igual a otras partículas
-          vertexColors: true,
+          color: color,
           transparent: true,
           opacity: 0.9,
           depthWrite: false,
-          blending: THREE.AdditiveBlending,
         });
 
-        return new THREE.Points(geometry, material);
-      };
+        const points = new THREE.Points(geometry, material);
+        points.position.set(position.x || 0, position.y || 0, position.z || 0);
+        points.userData = { type: "foam", speed, areaY, areaX, depthZ, depthX };
+        return points;
+      }
+
+      function createDragonflyParticles({
+        count = 10,
+        color = 0xffcc00,
+        areaY = 0.3,
+        areaX = 1,
+        //speed = 0.002,
+        depthZ = 0.02,
+        position = { x: 0, y: 0, z: 0 }, // posición global configurable
+      }) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * areaX;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * areaY;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * depthZ;
+        }
+
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+
+        const material = new THREE.PointsMaterial({
+          size: 20,
+          color: color,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+        });
+
+        const points = new THREE.Points(geometry, material);
+        points.position.set(position.x || 0, position.y || 0, position.z || 0);
+        points.userData = { type: "dragonfly", areaY, areaX, depthZ };
+        return points;
+      }
+
+      function createFireParticles({
+        count = 30,
+        areaX = 0.25,
+        areaY = 0.25,
+        color = 0xff3300,
+        position = { x: 0, y: 0, z: 0 }, // posición global configurable
+      }) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * areaX;
+          positions[i * 3 + 1] = Math.random() * areaY;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+        }
+
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+
+        const material = new THREE.PointsMaterial({
+          size: 20,
+          color: color,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+        });
+
+        const points = new THREE.Points(geometry, material);
+        points.position.set(position.x || 0, position.y || 0, position.z || 0);
+        points.userData = { type: "fire", areaY, areaX };
+        return points;
+      }
 
       /* ---------- MINDAR ---------- */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
@@ -556,14 +604,13 @@
       ];
 
       let particlesRef = null;
-      let target1Active = false; /////// borrar si sirve
+      let target1Active = false;
 
       // Crear los targets y videos
       targets.forEach((target) => {
         const { index, layers, audio: audioSrc } = target;
         const anchor = mindarThree.addAnchor(index);
         target.videos = []; //  guardamos videos aquí
-        let particles = null;
         target.audioObj = null;
 
         if (target.audio) {
@@ -630,7 +677,79 @@
           return { material, video };
         }
 
+        /* ============================
+          MAPA DE CONFIG POR TARGET
+        ============================ */
+        const particleTypes = {
+          rain: createRainParticles,
+          foam: createFoamParticles,
+          dragonfly: createDragonflyParticles,
+          fire: createFireParticles,
+        };
+
+        /* ============================
+          ASIGNACION DE PARTICULAS POR TARGET
+        ============================ */
+        const targetParticleConfig = {
+          0: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.2,
+              areaX: 5,
+              speed: 0.002, // Velocidad baja
+              size: 50, // Tamaño de partícula
+              color: 0xffff, // Blanco visible
+              position: { x: 0, y: -0.25, z: 0.1 },
+            },
+          },
+          1: {
+            type: "rain",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              depthX: 1,
+              speed: 0.01,
+              size: 0.01,
+              color: 0x3642fa,
+            },
+          },
+          2: {
+            type: "dragonfly",
+            params: {
+              count: 100,
+              size: 0.025,
+              color: 0xc020fa,
+              speed: 0.5,
+              areaX: 0.8,
+            },
+          },
+          3: {
+            type: "foam",
+            params: {
+              count: 100,
+              areaY: 0.2,
+              areaX: 5,
+              speed: 0.002, // Velocidad baja
+              size: 20, // Tamaño de partícula
+              color: 0xffff, // Blanco visible
+              position: { x: 0, y: -0.25, z: 0.1 },
+            },
+          },
+          14: {
+            type: "fire",
+            params: {
+              count: 50,
+              areaY: 0.3,
+              size: 0.02,
+              color: 0xff3300,
+              position: { x: 0.1, y: 0, z: -0.1 },
+            },
+          },
+        };
+
         // Ajuates de las capas de video
+
         layers.forEach(({ src, z, x = 0, y = 0, scale = 1, chroma }) => {
           const videoElement = document.createElement("video");
           videoElement.crossOrigin = "anonymous";
@@ -672,26 +791,6 @@
           anchor.group.add(plane);
         });
 
-        // Partículas por target específico
-        if (index === 0) {
-          const foamParticles = createFoamParticles();
-          foamParticles.position.y -= 0.1;
-          anchor.group.add(foamParticles);
-          target.particlesRef = foamParticles;
-        }
-        if (index === 1) {
-          const dragonflyParticles = createParticles();
-          anchor.group.add(dragonflyParticles);
-          target.particlesRef = dragonflyParticles;
-        }
-
-        if (index === 14) {
-          const fireParticles = createFireParticles();
-          fireParticles.position.set(0.08, -0.1, 0.2); // Ajusta posición
-          anchor.group.add(fireParticles);
-          target.particlesRef = fireParticles;
-        }
-
         // Eventos target (CUANDO ENCUENTRA EL TARGET)
         anchor.onTargetFound = () => {
           target.videos.forEach((v) => {
@@ -699,6 +798,15 @@
           });
           if (target.audioObj) target.audioObj.play().catch(() => {});
         };
+
+        // 🌟 Crear partículas SOLO si están configuradas
+        const config = targetParticleConfig[index];
+        if (config) {
+          const particleSystem = particleTypes[config.type](config.params);
+          particleSystem.userData = { type: config.type, ...config.params };
+          anchor.group.add(particleSystem);
+          target.particlesRef = particleSystem;
+        }
 
         // Eventos target (CUANDO SE PIERDE EL TARGET)
         anchor.onTargetLost = () => {
@@ -734,85 +842,90 @@
         );
       });
 
-      // 🔥 Animación de fuego
-      const animateFire = (fireParticles) => {
-        if (!fireParticles) return;
+      /* ============================
+        ANIMACIÓN CENTRALIZADA
 
-        const positions = fireParticles.geometry.attributes.position.array;
-        const count = positions.length / 3;
-
-        for (let i = 0; i < count; i++) {
-          const idx = i * 3;
-          positions[idx + 1] += 0.003; // sube
-          positions[idx] += (Math.random() - 0.5) * 0.001; // X aleatorio
-          positions[idx + 2] += (Math.random() - 0.5) * 0.001; // Z aleatorio
-
-          // reaparece abajo
-          if (positions[idx + 1] > 0.3) {
-            positions[idx + 1] = 0;
-          }
-        }
-
-        fireParticles.geometry.attributes.position.needsUpdate = true;
-      };
-
-      // ✨ Animación general
-      const animateParticles = () => {
+        Aquí se animarian las particulas
+         ============================ */
+      function animateParticles() {
         const t = performance.now() * 0.001;
 
         targets.forEach((target) => {
-          if (!target.particlesRef) return;
+          const pRef = target.particlesRef;
+          if (!pRef || !pRef.geometry || !pRef.userData) return;
 
-          const positions =
-            target.particlesRef.geometry.attributes.position.array;
+          const positions = pRef.geometry.attributes.position.array;
+          const data = pRef.userData;
+          const count = positions.length / 3;
 
-          // 🌊 Espuma (Target 0)
-          if (target.index === 0) {
-            for (let i = 0; i < positions.length; i += 3) {
-              positions[i + 1] += 0.002 + 0.001 * Math.sin(t + i / 3);
-              positions[i] += 0.0005 * Math.sin(t * 2 + i / 3);
-              if (positions[i + 1] > 0.2) {
-                positions[i + 1] = -0.1;
-                positions[i] = (Math.random() - 0.5) * 0.8;
+          switch (data.type) {
+            case "rain": {
+              const velocities = data.velocities || [];
+              for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                positions[idx + 1] += velocities[i] || -data.speed;
+                if (positions[idx + 1] < -data.areaY / 2) {
+                  positions[idx + 1] = data.areaY / 2;
+                }
               }
+              break;
             }
-          }
 
-          // 🌧️ Lluvia (Target 1)
-          if (target.index === 1) {
-            for (let i = 0; i < positions.length; i += 3) {
-              positions[i + 1] -= 0.01; // Caída vertical rápida
-              if (positions[i + 1] < -0.25) {
-                // reaparece arriba
-                positions[i + 1] = 0.25;
-                positions[i] = (Math.random() - 0.5) * 0.5;
+            case "foam": {
+              const velocities = data.velocities || [];
+              for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                positions[idx + 1] += velocities[i] || data.speed;
+                if (positions[idx + 1] > data.areaY / 2) {
+                  positions[idx + 1] = -data.areaY / 2;
+                }
               }
+              break;
+            }
+
+            case "dragonfly": {
+              const positions = pRef.geometry.attributes.position.array;
+              const data = pRef.userData;
+              const count = positions.length / 3;
+
+              for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+
+                // Oscilación horizontal + desplazamiento
+                positions[idx] += Math.sin(t + i) * data.speed * 0.01;
+                positions[idx + 1] += Math.cos(t + i) * data.speed * 0.005;
+
+                // Opcional: limitar posición en X/Y para que no se vayan muy lejos
+                if (positions[idx] > data.areaX / 2)
+                  positions[idx] = -data.areaX / 2;
+                if (positions[idx] < -data.areaX / 2)
+                  positions[idx] = data.areaX / 2;
+                if (positions[idx + 1] > data.areaY / 2)
+                  positions[idx + 1] = -data.areaY / 2;
+                if (positions[idx + 1] < -data.areaY / 2)
+                  positions[idx + 1] = data.areaY / 2;
+              }
+
+              pRef.geometry.attributes.position.needsUpdate = true;
+              break;
+            }
+
+            case "fire": {
+              const velocities = data.velocities || [];
+              for (let i = 0; i < count; i++) {
+                const idx = i * 3;
+                positions[idx + 1] += velocities[i] || 0.003;
+                if (positions[idx + 1] > data.areaY) {
+                  positions[idx + 1] = 0;
+                }
+              }
+              break;
             }
           }
 
-          // 🪰 Libélulas (Target 2)
-          if (target.index === 2) {
-            for (let i = 0; i < positions.length; i += 3) {
-              positions[i] += 0.0025 * Math.sin(t * 1.5 + i / 3);
-              positions[i + 1] += 0.002 * Math.cos(t * 1.2 + i / 3);
-              positions[i + 2] += 0.001 * Math.sin(t * 2 + i / 3);
-            }
-            const scaleFactor = 1 + 0.1 * Math.sin(t * 0.3);
-            target.particlesRef.scale.set(
-              scaleFactor,
-              scaleFactor,
-              scaleFactor
-            );
-          }
-
-          // 🔥 Fuego (Target 14)
-          if (target.index === 14) {
-            animateFire(target.particlesRef);
-          }
-
-          target.particlesRef.geometry.attributes.position.needsUpdate = true;
+          pRef.geometry.attributes.position.needsUpdate = true;
         });
-      };
+      }
 
       const start = async () => {
         await mindarThree.start();
