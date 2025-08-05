@@ -697,8 +697,8 @@
               count: 300,
               areaY: 0.2,
               areaX: 5,
-              speed: 0.002, // Velocidad baja
-              size: 50, // Tamaño de partícula
+              speed: 0.0002, // Velocidad baja
+              size: 1000, // Tamaño de partícula
               color: 0xffff, // Blanco visible
               position: { x: 0, y: -0.25, z: 0.1 },
             },
@@ -709,7 +709,7 @@
               count: 300,
               areaY: 0.7,
               depthX: 1,
-              speed: 0.01,
+              speed: 0.005,
               size: 0.01,
               color: 0x3642fa,
             },
@@ -725,15 +725,73 @@
             },
           },
           3: {
+            type: "rain",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              depthX: 1,
+              speed: 0.005,
+              size: 0.01,
+              color: 0x3642fa,
+            },
+          },
+          4: {
             type: "foam",
             params: {
-              count: 100,
+              count: 300,
               areaY: 0.2,
               areaX: 5,
-              speed: 0.002, // Velocidad baja
-              size: 20, // Tamaño de partícula
+              speed: 0.001, // Velocidad baja
+              size: 50, // Tamaño de partícula
               color: 0xffff, // Blanco visible
               position: { x: 0, y: -0.25, z: 0.1 },
+            },
+          },
+          5: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              areaX: 5,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xffff, // Blanco visible
+              position: { x: 0, y: 0.1, z: 0.2 },
+            },
+          },
+          11: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              areaX: 5,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xF00111, // Blanco visible
+              position: { x: 0, y: 0.1, z: 0.2 },
+            },
+          },
+          12: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              areaX: 5,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xF00111, // Blanco visible
+              position: { x: 0, y: 0.1, z: 0.2 },
+            },
+          },
+          13: {
+            type: "fire",
+            params: {
+              count: 50,
+              areaY: 0.3,
+              speed: 0.0008,
+              size: 0.001,
+              color: 0xff3300,
+              position: { x: 0.18, y: -0.14, z: 0.2 },
             },
           },
           14: {
@@ -746,6 +804,125 @@
               position: { x: 0.1, y: 0, z: -0.1 },
             },
           },
+          15: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              areaX: 5,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xff3300, // Blanco visible
+              position: { x: 0, y: 0.1, z: 0.2 },
+            },
+          },
+          16: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              areaX: 5,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xff3300, // Blanco visible
+              position: { x: 0, y: 0.1, z: 0.2 },
+            },
+          },
+          17: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              areaX: 5,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xff3300, // Blanco visible
+              position: { x: 0, y: 0.1, z: 0.2 },
+            },
+          },
+          19: {
+            type: "fire",
+            params: {
+              count: 50,
+              areaY: 0.1,
+              size: 0.01,
+              color: 0xff3300,
+              position: { x: -0.08, y: -0.05, z: 0.2 },
+            },
+          },
+          20: {
+            type: "rain",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              depthX: 1,
+              speed: 0.005,
+              size: 0.01,
+              color: 0x3642fa,
+              position: { x:0, y: 0, z: 0.3 },
+            },
+          },
+          24: {
+            type: "rain",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              depthX: 1,
+              speed: 0.0005,
+              size: 0.001,
+              color: 0x9B3496,
+              position: { x:0, y: 0, z: -0.1 },
+            },
+          },
+          25: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.4,
+              areaX: 10,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xfff, // Blanco visible
+              position: { x: 0, y: -0.2, z: 0.2 },
+            },
+          },
+          28: {
+            type: "rain",
+            params: {
+              count: 300,
+              areaY: 0.7,
+              depthX: 1,
+              speed: 0.0005,
+              size: 1000,
+              color: 0x9B3496,
+              position: { x:0, y: 0, z: -0.1 },
+            },
+          },
+          29: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.8,
+              areaX: 10,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xfff, // Blanco visible
+              position: { x: 0, y: 0, z: 0.2 },
+            },
+          },
+          30: {
+            type: "foam",
+            params: {
+              count: 300,
+              areaY: 0.8,
+              areaX: 10,
+              speed: 0.0008, // Velocidad baja
+              size: 100, // Tamaño de partícula
+              color: 0xfce733, // Blanco visible
+              position: { x: 0, y: -0.12, z: -0.1 },
+            },
+          },
+
         };
 
         // Ajuates de las capas de video
