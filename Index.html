@@ -6,11 +6,10 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
     />
+    <title>WebAR (AAC + AutoStart + Splash + Fix Android Low-End)</title>
 
     <!-- Preload del icono (cambia la ruta por la tuya) -->
-    <link rel="preload" as="image" href="assets/tap-icon.png" />
-
-    <title>WebAR Multicapas + Multitarget (AAC + AutoStart + Optimizado)</title>
+    <link rel="preload" as="image" href="Img/IconSound.png" />
 
     <!-- Librerías -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
@@ -44,14 +43,57 @@
         font: 12px/1 system-ui;
         opacity: 0.85;
       }
+
+      /* SPLASH de icono a pantalla completa */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #splash.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #splash .icon {
+        width: min(64vmin, 420px);
+        aspect-ratio: 1 / 1;
+        background: center / contain no-repeat;
+        image-rendering: -webkit-optimize-contrast;
+        will-change: transform, opacity;
+        animation: pop 320ms ease both;
+      }
+      @keyframes pop {
+        from {
+          transform: scale(0.92);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
     </style>
   </head>
   <body>
     <div id="ar-container"></div>
     <div id="fps" aria-hidden="true"></div>
+    <div id="splash" aria-hidden="false">
+      <div class="icon" id="splash-icon"></div>
+    </div>
 
     <script type="module">
-      /* ------------- FIX 100vh en iOS ------------- */
+      /* ================= CONFIG ================= */
+      const SPLASH_ICON_URL = "Img/IconSound.png"; // ← cambia a tu PNG
+      const SPLASH_DURATION_MS = 1000; // 1s visible
+
+      /* ====== FIX 100vh iOS ====== */
       const fixVH = () => {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty("--vh", `${vh}px`);
@@ -60,23 +102,20 @@
       addEventListener("resize", fixVH);
       addEventListener("orientationchange", fixVH);
 
-      /* ------------- Perfil de calidad (baja/media/alta) ------------- */
+      /* ====== Perfil de calidad ====== */
       const detectarCalidad = () => {
-        const memoria = navigator.deviceMemory || 2;
+        const mem = navigator.deviceMemory || 2;
         const cpu = navigator.hardwareConcurrency || 2;
-        if (memoria <= 2 || cpu <= 4) return "low";
-        if (memoria <= 4) return "mid";
+        if (mem <= 2 || cpu <= 4) return "low";
+        if (mem <= 4) return "mid";
         return "hd";
       };
       const calidad = detectarCalidad();
+      const ENABLE_PARTICLES = calidad !== "low"; // en low, sin partículas
 
-      /* ------------- Utils de partículas y escalado ------------- */
+      /* ====== Partículas con escalado ====== */
       const scaleByQuality = (n) =>
-        calidad === "low"
-          ? Math.max(10, Math.round(n * 0.35))
-          : calidad === "mid"
-          ? Math.round(n * 0.6)
-          : n;
+        calidad === "low" ? 0 : calidad === "mid" ? Math.round(n * 0.6) : n;
       const createPoints = (positions, size, color) => {
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute(
@@ -104,6 +143,7 @@
           position = { x: 0, y: 0, z: 0 },
         }) => {
           count = scaleByQuality(count);
+          if (!count) return null;
           const positions = new Float32Array(count * 3);
           for (let i = 0; i < count; i++) {
             positions[i * 3] = (Math.random() - 0.5) * depthX;
@@ -127,6 +167,7 @@
           position = { x: 0, y: 0, z: 0 },
         }) => {
           count = scaleByQuality(count);
+          if (!count) return null;
           const positions = new Float32Array(count * 3);
           for (let i = 0; i < count; i++) {
             positions[i * 3] = (Math.random() - 0.5) * depthX;
@@ -149,6 +190,7 @@
           position = { x: 0, y: 0, z: 0 },
         }) => {
           count = scaleByQuality(count);
+          if (!count) return null;
           const positions = new Float32Array(count * 3);
           for (let i = 0; i < count; i++) {
             positions[i * 3] = (Math.random() - 0.5) * areaX;
@@ -170,6 +212,7 @@
           position = { x: 0, y: 0, z: 0 },
         }) => {
           count = scaleByQuality(count);
+          if (!count) return null;
           const positions = new Float32Array(count * 3);
           for (let i = 0; i < count; i++) {
             positions[i * 3] = (Math.random() - 0.5) * areaX;
@@ -183,7 +226,7 @@
         },
       };
 
-      /* ------------- Shader de croma ------------- */
+      /* ====== Shader de croma (con precision para Android) ====== */
       const makeChromaMaterial = (texture, key = 0x0f00da) => {
         const col = new THREE.Color(key);
         return new THREE.ShaderMaterial({
@@ -194,12 +237,29 @@
             smoothness: { value: 0.6 },
           },
           transparent: true,
-          vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-          fragmentShader: `uniform sampler2D map; uniform vec3 keyColor; uniform float similarity; uniform float smoothness; varying vec2 vUv; void main(){ vec4 tex = texture2D(map, vUv); float Y = dot(tex.rgb, vec3(0.2989, 0.5866, 0.1145)); float Cr = tex.r - Y; float Cb = tex.b - Y; float Yk = dot(keyColor.rgb, vec3(0.2989,0.5866,0.1145)); float Crk = keyColor.r - Yk; float Cbk = keyColor.b - Yk; float diff = distance(vec2(Cr,Cb), vec2(Crk,Cbk)); float alpha = smoothstep(similarity, similarity+smoothness, diff); gl_FragColor = vec4(tex.rgb, alpha); }`,
+          vertexShader: `
+            precision mediump float; // <- importante para Android
+            varying vec2 vUv;
+            void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+          `,
+          fragmentShader: `
+            precision mediump float; // <- importante para Android
+            uniform sampler2D map; uniform vec3 keyColor; uniform float similarity; uniform float smoothness; varying vec2 vUv;
+            void main(){
+              vec4 tex = texture2D(map, vUv);
+              float Y = dot(tex.rgb, vec3(0.2989, 0.5866, 0.1145));
+              float Cr = tex.r - Y; float Cb = tex.b - Y;
+              float Yk = dot(keyColor.rgb, vec3(0.2989,0.5866,0.1145));
+              float Crk = keyColor.r - Yk; float Cbk = keyColor.b - Yk;
+              float diff = distance(vec2(Cr,Cb), vec2(Crk,Cbk));
+              float alpha = smoothstep(similarity, similarity+smoothness, diff);
+              gl_FragColor = vec4(tex.rgb, alpha);
+            }
+          `,
         });
       };
 
-      /* ------------- MindAR ------------- */
+      /* ====== MindAR ====== */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
         imageTargetSrc: "TargetsMind/targets.mind",
@@ -208,20 +268,23 @@
       });
       const { renderer, scene, camera } = mindarThree;
 
-      // Rendimiento: bajar pixel ratio en dispositivos modestos
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, calidad === "hd" ? 1.25 : 1)
-      );
+      // Pixel ratio más agresivo en low-end
+      const pxr = calidad === "low" ? 0.75 : calidad === "mid" ? 1.0 : 1.25;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pxr));
       if (renderer.outputEncoding !== undefined)
         renderer.outputEncoding = THREE.sRGBEncoding;
+      try {
+        renderer.getContext().getContextAttributes().powerPreference =
+          "low-power";
+      } catch (e) {}
 
       // Geometría compartida
       const sharedPlane = new THREE.PlaneGeometry(0.9, 0.8);
 
-      /* ------------- SOLO AAC (.m4a) ------------- */
-      const pickAAC = (basePath) => `${basePath}.m4a`; // sin fallback a mp3/ogg
+      /* ====== SOLO AAC (.m4a) ====== */
+      const pickAAC = (basePath) => `${basePath}.m4a`;
 
-      /* ------------- Definición de targets (audios sin extensión → .m4a) ------------- */
+      /* ====== Definición de targets ====== */
       const targets = [
         {
           index: 0,
@@ -244,7 +307,7 @@
         },
         {
           index: 1,
-          audioBase: "Audio/SoundVideo01",
+          // s
           layers: [
             {
               src: "Animations/Video01_FondoConFondo.mp4",
@@ -259,7 +322,7 @@
         },
         {
           index: 2,
-          // audioBase: "Audio/Sonido_Video02",
+          audioBase: "Audio/Sonido_Video02",
           layers: [
             {
               src: "Animations/Video02.mp4",
@@ -272,7 +335,7 @@
         },
         {
           index: 3,
-          // audioBase: "Audio/Sonido_Video03",
+          audioBase: "Audio/Sonido_Video03",
           layers: [
             { src: "Animations/Video03_Mitad.mp4", z: 0, chroma: "0x0f00da" },
             {
@@ -284,7 +347,7 @@
         },
         {
           index: 4,
-          // audioBase: "Audio/Sonido_Video04",
+          audioBase: "Audio/Sonido_Video04",
           layers: [
             {
               src: "Animations/Video04.mp4",
@@ -296,7 +359,7 @@
         },
         {
           index: 5,
-          // audioBase: "Audio/Sonido_Video05",
+          audioBase: "Audio/Sonido_Video05",
           layers: [
             {
               src: "Animations/Video05_ConFondo.mp4",
@@ -309,7 +372,7 @@
         },
         {
           index: 6,
-          // audioBase: "Audio/Sonido_Video06",
+          audioBase: "Audio/Sonido_Video06",
           layers: [
             {
               src: "Animations/Video06_Fondo.mp4",
@@ -329,14 +392,14 @@
         },
         {
           index: 7,
-          // audioBase: "Audio/Sonido_Video07",
+          audioBase: "Audio/Sonido_Video07",
           layers: [
             { src: "Animations/Video07.mp4", z: 0.2, chroma: "0x0f00da" },
           ],
         },
         {
           index: 8,
-          // audioBase: "Audio/Sonido_Video07",
+          audioBase: "Audio/Sonido_Video07",
           layers: [
             {
               src: "Animations/Video08.mp4",
@@ -348,7 +411,7 @@
         },
         {
           index: 9,
-          // audioBase: "Audio/Sonido_Video07",
+          audioBase: "Audio/Sonido_Video07",
           layers: [
             {
               src: "Animations/Video09.mp4",
@@ -361,7 +424,7 @@
         },
         {
           index: 10,
-          // audioBase: "Audio/Sonido_Video10",
+          audioBase: "Audio/Sonido_Video10",
           layers: [
             {
               src: "Animations/Video10.mp4",
@@ -375,7 +438,7 @@
         },
         {
           index: 11,
-          // audioBase: "Audio/Sonido_Video11",
+          audioBase: "Audio/Sonido_Video11",
           layers: [
             {
               src: "Animations/Video11.mp4",
@@ -387,21 +450,21 @@
         },
         {
           index: 12,
-          // audioBase: "Audio/Sonido_Video12",
+          audioBase: "Audio/Sonido_Video12",
           layers: [
             { src: "Animations/Video12.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
         },
         {
           index: 13,
-          // audioBase: "Audio/Sonido_Video13",
+          audioBase: "Audio/Sonido_Video13",
           layers: [
             { src: "Animations/Video13.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
         },
         {
           index: 14,
-          // audioBase: "Audio/Sonido_Video13",
+          audioBase: "Audio/Sonido_Video13",
           layers: [
             {
               src: "Animations/Video14.mp4",
@@ -414,7 +477,7 @@
         },
         {
           index: 15,
-          // audioBase: "Audio/Sonido_Video15",
+          audioBase: "Audio/Sonido_Video15",
           layers: [
             {
               src: "Animations/Video15.mp4",
@@ -428,7 +491,7 @@
         },
         {
           index: 16,
-          // audioBase: "Audio/Sonido_Video16",
+          audioBase: "Audio/Sonido_Video16",
           layers: [
             {
               src: "Animations/Video16.mp4",
@@ -440,7 +503,7 @@
         },
         {
           index: 17,
-          // audioBase: "Audio/Sonido_Video13",
+          audioBase: "Audio/Sonido_Video13",
           layers: [
             {
               src: "Animations/Video17.mp4",
@@ -452,7 +515,7 @@
         },
         {
           index: 18,
-          // audioBase: "Audio/Sonido_Video18",
+          audioBase: "Audio/Sonido_Video18",
           layers: [
             {
               src: "Animations/Video18.mp4",
@@ -464,14 +527,14 @@
         },
         {
           index: 19,
-          // audioBase: "Audio/Sonido_Video19",
+          audioBase: "Audio/Sonido_Video19",
           layers: [
             { src: "Animations/Video19.mp4", y: -0.08, chroma: "0x0f00da" },
           ],
         },
         {
           index: 20,
-          // audioBase: "Audio/Sonido_Video20",
+          audioBase: "Audio/Sonido_Video20",
           layers: [
             {
               src: "Animations/Video20Fondo.mp4",
@@ -491,12 +554,12 @@
         },
         {
           index: 21,
-          // audioBase: "Audio/Sonido_Video04",
+          audioBase: "Audio/Sonido_Video04",
           layers: [{ src: "Animations/Video21.mp4", z: 0, chroma: "0x0f00da" }],
         },
         {
           index: 22,
-          // audioBase: "Audio/Sonido_Video22",
+          audioBase: "Audio/Sonido_Video22",
           layers: [
             {
               src: "Animations/Video22.mp4",
@@ -509,7 +572,7 @@
         },
         {
           index: 23,
-          // audioBase: "Audio/PajarosSingle_ogg",
+          audioBase: "Audio/PajarosSingle_ogg",
           layers: [
             {
               src: "Animations/Video23.mp4",
@@ -521,7 +584,7 @@
         },
         {
           index: 24,
-          // audioBase: "Audio/Sonido_Video10",
+          audioBase: "Audio/Sonido_Video10",
           layers: [
             {
               src: "Animations/Video24.mp4",
@@ -533,7 +596,7 @@
         },
         {
           index: 25,
-          // audioBase: "Audio/Sonido_Video25",
+          audioBase: "Audio/Sonido_Video25",
           layers: [
             {
               src: "Animations/Video25.mp4",
@@ -546,7 +609,7 @@
         },
         {
           index: 26,
-          // audioBase: "Audio/Sonido_Video22",
+          audioBase: "Audio/Sonido_Video22",
           layers: [
             {
               src: "Animations/Video26.mp4",
@@ -558,7 +621,7 @@
         },
         {
           index: 27,
-          // audioBase: "Audio/Sonido_Video27",
+          audioBase: "Audio/Sonido_Video27",
           layers: [
             {
               src: "Animations/Video27.mp4",
@@ -570,7 +633,7 @@
         },
         {
           index: 28,
-          // audioBase: "Audio/Sonido_Video28",
+          audioBase: "Audio/Sonido_Video28",
           layers: [
             {
               src: "Animations/Video28.mp4",
@@ -582,7 +645,7 @@
         },
         {
           index: 29,
-          // audioBase: "Audio/Sonido_Video29",
+          audioBase: "Audio/Sonido_Video29",
           layers: [
             {
               src: "Animations/Video29.mp4",
@@ -596,7 +659,7 @@
         },
         {
           index: 30,
-          // audioBase: "Audio/PajarosSingle_ogg",
+          audioBase: "Audio/PajarosSingle_ogg",
           layers: [
             {
               src: "Animations/Video30.mp4",
@@ -610,7 +673,7 @@
         },
       ];
 
-      // Partículas asignadas (mismo mapa que antes, con escalado automático)
+      // Partículas mapeadas (mismo mapa, pero se crean bajo demanda y NO en low)
       const particleMap = {
         0: {
           type: "foam",
@@ -836,12 +899,33 @@
         },
       };
 
-      // Recursos activos
+      // Estado
       const activeTargets = new Set();
+      let audioUnlocked = false;
 
-      // Helpers de video para quitar el "segundo negro"
+      /* ====== Helpers: video sin flash negro, y espera de primer frame ====== */
+      const waitFirstFrame = (video) =>
+        new Promise((resolve) => {
+          const done = () => {
+            cleanup();
+            resolve();
+          };
+          const cleanup = () => {
+            video.removeEventListener("playing", done);
+            video.removeEventListener("loadeddata", done);
+            video.removeEventListener("seeked", done);
+          };
+          if (typeof video.requestVideoFrameCallback === "function") {
+            video.requestVideoFrameCallback(() => {
+              done();
+            });
+          } else {
+            video.addEventListener("playing", done, { once: true });
+            video.addEventListener("loadeddata", done, { once: true });
+            video.addEventListener("seeked", done, { once: true });
+          }
+        });
       const primeVideoFrame = async (video) => {
-        // Muted autoplay funciona en iOS, usamos un play-pause corto para decodificar primer frame
         try {
           await video.play();
         } catch (e) {}
@@ -861,13 +945,14 @@
         const cleanup = () => {
           video.removeEventListener("playing", show);
           video.removeEventListener("seeked", show);
+          video.removeEventListener("loadeddata", show);
         };
         if (typeof video.requestVideoFrameCallback === "function") {
-          // Mostrar al primer frame real
           video.requestVideoFrameCallback(() => show());
         } else {
           video.addEventListener("playing", show, { once: true });
           video.addEventListener("seeked", show, { once: true });
+          video.addEventListener("loadeddata", show, { once: true });
         }
       };
 
@@ -880,6 +965,7 @@
         video.playsInline = true;
         video.autoplay = false;
         video.preload = "auto";
+        video.setAttribute("playsinline", "");
         video.setAttribute("webkit-playsinline", "true");
         video.disablePictureInPicture = true;
         video.src = src;
@@ -888,9 +974,11 @@
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         if ("colorSpace" in texture) texture.colorSpace = THREE.SRGBColorSpace;
+        video.addEventListener("loadeddata", () => {
+          texture.needsUpdate = true;
+        });
 
         const geom = sharedPlane.clone();
-        // Pequeño ajuste UV para evitar bordes
         const uv = geom.attributes.uv.array;
         uv[0] = 0.01;
         uv[2] = 0.99;
@@ -906,7 +994,7 @@
         const mesh = new THREE.Mesh(geom, material);
         mesh.position.set(x, y, z);
         mesh.scale.set(scale, scale, 1);
-        revealOnFirstFrame(video, mesh); // oculto hasta primer frame
+        revealOnFirstFrame(video, mesh);
         return { video, texture, mesh };
       };
 
@@ -926,7 +1014,7 @@
         }
       };
 
-      // Crear anchors/recursos
+      // ====== Crear anchors/recursos con carga perezosa ======
       targets.forEach((t) => {
         const anchor = mindarThree.addAnchor(t.index);
         t.anchor = anchor;
@@ -934,14 +1022,7 @@
         t.layerObjs = [];
         t.audioObj = null;
         t.cleanupTimeout = null;
-
-        // Partículas por target
-        const pcfg = particleMap[t.index];
-        if (pcfg) {
-          const particles = Particles[pcfg.type](pcfg.params);
-          t.particles = particles;
-          anchor.group.add(particles);
-        }
+        t.particles = null;
 
         const ensureAudio = () => {
           if (t.audioObj) return;
@@ -958,10 +1039,28 @@
             const obj = createVideoLayer(layerCfg);
             t.layerObjs.push(obj);
             anchor.group.add(obj.mesh);
-            // Prime frame para evitar flash negro
-            await primeVideoFrame(obj.video);
+            await primeVideoFrame(obj.video); // precalentar
           }
           t.layersCreated = true;
+        };
+
+        const ensureParticles = () => {
+          if (!ENABLE_PARTICLES) return;
+          if (t.particles) return;
+          const pcfg = particleMap[t.index];
+          if (!pcfg) return;
+          const p = Particles[pcfg.type](pcfg.params);
+          if (!p) return;
+          t.particles = p;
+          t.particles.visible = false;
+          anchor.group.add(p);
+        };
+
+        const showParticles = () => {
+          if (t.particles) t.particles.visible = true;
+        };
+        const hideParticles = () => {
+          if (t.particles) t.particles.visible = false;
         };
 
         anchor.onTargetFound = async () => {
@@ -970,14 +1069,25 @@
             clearTimeout(t.cleanupTimeout);
             t.cleanupTimeout = null;
           }
+
           ensureAudio();
           await ensureLayers();
-          // Start videos
+          ensureParticles();
+
+          // Arrancar videos y esperar primer frame de todas las capas
+          const waits = [];
           t.layerObjs.forEach(({ video }) => {
             video.play().catch(() => {});
+            waits.push(waitFirstFrame(video));
           });
-          // Start audio si el usuario ya tocó (desbloqueado con gesto global)
-          if (t.audioObj) {
+          await Promise.all(waits);
+
+          // Mostrar partículas SOLO después de que el video ya dibujó el primer frame
+          showParticles();
+
+          // Reproducir audio si ya se desbloqueó
+          if (audioUnlocked && t.audioObj) {
+            t.audioObj.muted = false;
             t.audioObj.play().catch(() => {});
           }
         };
@@ -985,9 +1095,8 @@
         anchor.onTargetLost = () => {
           activeTargets.delete(t.index);
           t.layerObjs.forEach(({ video }) => video.pause());
+          hideParticles();
           if (t.audioObj) t.audioObj.pause();
-
-          // En low/mid, liberar GPU tras 5s si no regresa
           if (calidad !== "hd") {
             t.cleanupTimeout = setTimeout(() => {
               t.layerObjs.forEach((obj) => {
@@ -996,16 +1105,23 @@
               });
               t.layerObjs.length = 0;
               t.layersCreated = false;
+              if (t.particles) {
+                anchor.group.remove(t.particles);
+                t.particles.geometry?.dispose?.();
+                t.particles.material?.dispose?.();
+                t.particles = null;
+              }
             }, 5000);
           }
         };
       });
 
-      // Animación de partículas SOLO para targets activos
+      // ====== Animación de partículas SOLO en targets activos ======
       const animateParticles = () => {
+        if (!ENABLE_PARTICLES) return;
         targets.forEach((t) => {
           const p = t.particles;
-          if (!p || !activeTargets.has(t.index)) return;
+          if (!p || !p.visible || !activeTargets.has(t.index)) return;
           const positions = p.geometry.attributes.position.array;
           const type = p.userData.type;
           const count = positions.length / 3;
@@ -1065,8 +1181,10 @@
         });
       };
 
-      // Desbloqueo de AUDIO con el primer toque en cualquier parte (sin botón visible)
+      // ====== Desbloqueo de AUDIO (solo una vez) ======
       const unlockAudioOnce = () => {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
         targets.forEach((t) => {
           if (!t.audioObj) {
             try {
@@ -1075,20 +1193,19 @@
               t.audioObj.preload = "auto";
             } catch (e) {}
           }
+          // Desbloqueo silencioso sin pausar música más adelante
           try {
+            t.audioObj.muted = true;
             t.audioObj
-              ?.play?.()
+              .play()
               .then(() => {
                 t.audioObj.pause();
                 t.audioObj.currentTime = 0;
+                t.audioObj.muted = false;
               })
               .catch(() => {});
           } catch (e) {}
-          // También pre-caliento videos ya creados (si existieran)
-          t.layerObjs?.forEach?.(({ video }) => primeVideoFrame(video));
         });
-        removeEventListener("touchstart", unlockAudioOnce, { capture: true });
-        removeEventListener("pointerdown", unlockAudioOnce, { capture: true });
       };
       addEventListener("touchstart", unlockAudioOnce, {
         once: true,
@@ -1099,10 +1216,40 @@
         capture: true,
       });
 
-      // Iniciar cámara/AR inmediatamente (sin botón)
+      // ====== Splash (icono) ======
+      const splash = document.getElementById("splash");
+      const splashIcon = document.getElementById("splash-icon");
+      splashIcon.style.backgroundImage = `url('${SPLASH_ICON_URL}')`;
+      const showSplash = () => {
+        splash.classList.add("show");
+      };
+      const hideSplash = () => {
+        splash.classList.remove("show");
+        setTimeout(() => splash.remove(), 250);
+      };
+      splash.addEventListener(
+        "pointerdown",
+        () => {
+          unlockAudioOnce();
+          hideSplash();
+        },
+        { passive: true }
+      );
+      splash.addEventListener(
+        "touchstart",
+        () => {
+          unlockAudioOnce();
+          hideSplash();
+        },
+        { passive: true }
+      );
+
+      // ====== Inicio inmediato de cámara/AR ======
       const fpsBox = document.getElementById("fps");
       const start = async () => {
         await mindarThree.start();
+        showSplash();
+        setTimeout(hideSplash, SPLASH_DURATION_MS);
         let last = performance.now();
         let frames = 0;
         renderer.setAnimationLoop(() => {
