@@ -109,6 +109,7 @@
         color = 0xffffff,
         depthX = 0.1, //control de profundidad en Z
         depthZ = 0.2, //control de profundidad en Z
+        size = 10,
         position = { x: 0, y: 0, z: 0 }, //posición global configurable
       }) {
         const geometry = new THREE.BufferGeometry();
@@ -126,16 +127,17 @@
         );
 
         const material = new THREE.PointsMaterial({
-          size: 15,
+          size: size,
           color: color,
           transparent: true,
           opacity: 0.8,
           depthWrite: false,
         });
+        material.needsUpdate = true; // Asegura que se actualiza en GPU
 
         const points = new THREE.Points(geometry, material);
         points.position.set(position.x || 0, position.y || 0, position.z || 0);
-        points.userData = { type: "rain", speed, areaY, depthX, depthZ };
+        points.userData = { type: "rain", speed, areaY, depthX, depthZ, size };
         return points;
       }
 
@@ -147,6 +149,7 @@
         color = 0x33cfff,
         depthX = 0.8, // control de profundidad en Z
         depthZ = 0.02, // control de profundidad en Z
+        size = 10,
         position = { x: 0, y: 0, z: 0 }, // posición global configurable
       }) {
         const geometry = new THREE.BufferGeometry();
@@ -164,7 +167,7 @@
         );
 
         const material = new THREE.PointsMaterial({
-          size: 10,
+          size: size,
           color: color,
           transparent: true,
           opacity: 0.9,
@@ -173,7 +176,15 @@
 
         const points = new THREE.Points(geometry, material);
         points.position.set(position.x || 0, position.y || 0, position.z || 0);
-        points.userData = { type: "foam", speed, areaY, areaX, depthZ, depthX };
+        points.userData = {
+          type: "foam",
+          speed,
+          areaY,
+          areaX,
+          depthZ,
+          depthX,
+          size,
+        };
         return points;
       }
 
@@ -182,8 +193,9 @@
         color = 0xffcc00,
         areaY = 0.3,
         areaX = 1,
-        //speed = 0.002,
+        speed = 0.002,
         depthZ = 0.02,
+        size = 10,
         position = { x: 0, y: 0, z: 0 }, // posición global configurable
       }) {
         const geometry = new THREE.BufferGeometry();
@@ -201,7 +213,7 @@
         );
 
         const material = new THREE.PointsMaterial({
-          size: 20,
+          size: size,
           color: color,
           transparent: true,
           opacity: 0.9,
@@ -210,7 +222,14 @@
 
         const points = new THREE.Points(geometry, material);
         points.position.set(position.x || 0, position.y || 0, position.z || 0);
-        points.userData = { type: "dragonfly", areaY, areaX, depthZ };
+        points.userData = {
+          type: "dragonfly",
+          areaY,
+          areaX,
+          depthZ,
+          speed,
+          size,
+        };
         return points;
       }
 
@@ -238,7 +257,7 @@
         );
 
         const material = new THREE.PointsMaterial({
-          size: 20,
+          size: size,
           color: color,
           transparent: true,
           opacity: 0.9,
@@ -276,16 +295,16 @@
           layers: [
             {
               src: "Animations/Video00_ConFondo.mp4",
-              z: 0,
-              y: 0,
-              scale: 1.0,
+              x: 0.03,
+
+              scale: 0.92,
               chroma: "0xDCCD00",
             },
             {
               src: "Animations/Video00_Titulo.mp4",
               z: 0.1,
               y: 0.1,
-              x: -0.1,
+              x: -0.01,
               chroma: "0x0f00da",
             },
           ],
@@ -297,7 +316,9 @@
             {
               src: "Animations/Video01_FondoConFondo.mp4",
               z: -0.02,
-              scale: 1.1,
+              x: -0.08,
+              y: 0.02,
+              scale: 0.9,
               chroma: "0x0f00da",
             },
             {
@@ -342,7 +363,12 @@
           index: 4,
           audio: "Audio/Sonido_Video04.ogg",
           layers: [
-            { src: "Animations/Video04.mp4", z: 0.2, chroma: "0x0f00da" },
+            {
+              src: "Animations/Video04.mp4",
+              z: 0.1,
+              scale: 1.2,
+              chroma: "0x0f00da",
+            },
           ],
         },
         {
@@ -351,8 +377,9 @@
           layers: [
             {
               src: "Animations/Video05_ConFondo.mp4",
-              z: 0.2,
+              z: 0.0,
               scale: 1.1,
+              x: 0.08,
               chroma: "0x0f00da",
             },
           ],
@@ -370,7 +397,7 @@
             },
             {
               src: "Animations/Video06_Frente.mp4",
-              z: 0.08,
+              z: 0.05,
               x: -0.08,
               scale: 1.2,
               chroma: "0x0f00da",
@@ -403,7 +430,8 @@
             {
               src: "Animations/Video09.mp4",
               z: 0,
-              scale: 1.2,
+              y: -0.1,
+              scale: 1.0,
               chroma: "0x0f00da",
             },
           ],
@@ -504,12 +532,21 @@
         {
           index: 18,
           audio: "Audio/Sonido_Video18.ogg",
-          layers: [{ src: "Animations/Video18.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video18.mp4",
+              scale: 1.2,
+              y: 0.08,
+              chroma: "0x0f00da",
+            },
+          ],
         },
         {
           index: 19,
           audio: "Audio/Sonido_Video19.ogg",
-          layers: [{ src: "Animations/Video19.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            { src: "Animations/Video19.mp4", y: -0.08, chroma: "0x0f00da" },
+          ],
         },
         {
           index: 20,
@@ -552,12 +589,26 @@
         {
           index: 23,
           audio: "Audio/PajarosSingle_ogg.ogg",
-          layers: [{ src: "Animations/Video23.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video23.mp4",
+              scale: 1.1,
+              y: 0.02,
+              chroma: "0x0f00da",
+            },
+          ],
         },
         {
           index: 24,
           audio: "Audio/Sonido_Video10.ogg",
-          layers: [{ src: "Animations/Video24.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video24.mp4",
+              scale: 1.15,
+              x: 0.02,
+              chroma: "0x0f00da",
+            },
+          ],
         },
         {
           index: 25,
@@ -576,7 +627,14 @@
         {
           index: 26,
           audio: "Audio/Sonido_Video22.ogg",
-          layers: [{ src: "Animations/Video26.mp4", z: 0, chroma: "0x0f00da" }],
+          layers: [
+            {
+              src: "Animations/Video26.mp4",
+              scale: 0.8,
+              y: -0.05,
+              chroma: "0x0f00da",
+            },
+          ],
         },
         {
           index: 27,
@@ -622,10 +680,10 @@
           layers: [
             {
               src: "Animations/Video30.mp4",
-              z: 0.2,
-              x: 0,
-              y: 0.05,
-              scale: 1.2,
+              z: 0.1,
+              x: 0.04,
+              y: 0,
+              scale: 1.1,
               chroma: "0x0f00da",
             },
           ],
@@ -727,7 +785,7 @@
               areaY: 0.2,
               areaX: 5,
               speed: 0.0002, // Velocidad baja
-              size: 1000, // Tamaño de partícula
+              size: 15, // Tamaño de partícula
               color: 0xffff, // Blanco visible
               position: { x: 0, y: -0.25, z: 0.1 },
             },
@@ -739,7 +797,7 @@
               areaY: 0.7,
               depthX: 1,
               speed: 0.005,
-              size: 0.01,
+              size: 7,
               color: 0x3642fa,
             },
           },
@@ -747,10 +805,11 @@
             type: "dragonfly",
             params: {
               count: 100,
-              size: 0.025,
+              size: 12,
               color: 0xc020fa,
-              speed: 0.5,
-              areaX: 0.8,
+              speed: 3,
+              areaX: 0.7,
+              areaY: 0.7,
             },
           },
           3: {
@@ -758,46 +817,35 @@
             params: {
               count: 300,
               areaY: 0.7,
-              depthX: 1,
+              depthX: 0.8,
               speed: 0.005,
-              size: 0.01,
+              size: 10,
               color: 0x3642fa,
             },
           },
-          4: {
-            type: "foam",
-            params: {
-              count: 300,
-              areaY: 0.2,
-              areaX: 5,
-              speed: 0.001, // Velocidad baja
-              size: 50, // Tamaño de partícula
-              color: 0xffff, // Blanco visible
-              position: { x: 0, y: -0.25, z: 0.1 },
-            },
-          },
+
           5: {
             type: "foam",
             params: {
               count: 300,
-              areaY: 0.7,
-              areaX: 5,
-              speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              areaY: 0.6,
+              areaX: 6,
+              speed: 0.008, // Velocidad baja
+              size: 10, // Tamaño de partícula
               color: 0xffff, // Blanco visible
-              position: { x: 0, y: 0.1, z: 0.2 },
+              position: { x: 0, y: 0, z: -0.1 },
             },
           },
           11: {
             type: "foam",
             params: {
-              count: 300,
-              areaY: 0.7,
+              count: 200,
+              areaY: 0.5,
               areaX: 5,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              size: 10, // Tamaño de partícula
               color: 0xf00111, // Blanco visible
-              position: { x: 0, y: 0.1, z: 0.2 },
+              position: { x: 0, y: 0.0, z: -0.1 },
             },
           },
           12: {
@@ -806,8 +854,9 @@
               count: 300,
               areaY: 0.7,
               areaX: 5,
+              depthZ: -0.5,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              size: 10, // Tamaño de partícula
               color: 0xf00111, // Blanco visible
               position: { x: 0, y: 0.1, z: 0.2 },
             },
@@ -826,9 +875,10 @@
           14: {
             type: "fire",
             params: {
-              count: 50,
+              count: 100,
               areaY: 0.3,
-              size: 0.02,
+              areaX: 0.5,
+              size: 18,
               color: 0xff3300,
               position: { x: 0.1, y: 0, z: -0.1 },
             },
@@ -838,35 +888,35 @@
             params: {
               count: 300,
               areaY: 0.7,
-              areaX: 5,
+              areaX: 6,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              size: 10, // Tamaño de partícula
               color: 0xff3300, // Blanco visible
-              position: { x: 0, y: 0.1, z: 0.2 },
+              position: { x: 0, y: 0.1, z: -0.1 },
             },
           },
           16: {
-            type: "foam",
+            type: "fire",
             params: {
               count: 300,
               areaY: 0.7,
-              areaX: 5,
+              areaX: 0.7,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              size: 10, // Tamaño de partícula
               color: 0xff3300, // Blanco visible
-              position: { x: 0, y: 0.1, z: 0.2 },
+              position: { x: 0, y: -0.3, z: -0.1 },
             },
           },
           17: {
             type: "foam",
             params: {
-              count: 300,
-              areaY: 0.7,
-              areaX: 5,
+              count: 100,
+              areaY: 0.9,
+              areaX: 0.9,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              size: 10, // Tamaño de partícula
               color: 0xff3300, // Blanco visible
-              position: { x: 0, y: 0.1, z: 0.2 },
+              position: { x: -0.1, y: -0.06, z: -0.1 },
             },
           },
           19: {
@@ -892,26 +942,26 @@
             },
           },
           24: {
-            type: "rain",
+            type: "fire",
             params: {
               count: 300,
               areaY: 0.7,
-              depthX: 1,
-              speed: 0.0005,
-              size: 0.001,
-              color: 0x9b3496,
-              position: { x: 0, y: 0, z: -0.1 },
+              areaX: 0.5,
+              speed: 0.0008, // Velocidad baja
+              size: 10, // Tamaño de partícula
+              color: 0xce88d8, // Blanco visible
+              position: { x: -0.1, y: -0.3, z: -0.1 },
             },
           },
           25: {
             type: "foam",
             params: {
               count: 300,
-              areaY: 0.4,
+              areaY: 0.3,
               areaX: 10,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
-              color: 0xfff, // Blanco visible
+              size: 10, // Tamaño de partícula
+              color: 0xffff, // Blanco visible
               position: { x: 0, y: -0.2, z: 0.2 },
             },
           },
@@ -922,9 +972,9 @@
               areaY: 0.7,
               depthX: 1,
               speed: 0.0005,
-              size: 1000,
+              size: 25,
               color: 0x9b3496,
-              position: { x: 0, y: 0, z: -0.1 },
+              position: { x: 0, y: -0.2, z: -0.1 },
             },
           },
           29: {
@@ -934,21 +984,21 @@
               areaY: 0.8,
               areaX: 10,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
-              color: 0xfff, // Blanco visible
-              position: { x: 0, y: 0, z: 0.2 },
+              size: 10, // Tamaño de partícula
+              color: 0xffff, // Blanco visible
+              position: { x: 0, y: 0, z: -0.1 },
             },
           },
           30: {
             type: "foam",
             params: {
-              count: 300,
+              count: 100,
               areaY: 0.8,
               areaX: 10,
               speed: 0.0008, // Velocidad baja
-              size: 100, // Tamaño de partícula
+              size: 10, // Tamaño de partícula
               color: 0xfce733, // Blanco visible
-              position: { x: 0, y: -0.12, z: -0.1 },
+              position: { x: 0, y: 0, z: -0.1 },
             },
           },
         };
@@ -1096,19 +1146,24 @@
               for (let i = 0; i < count; i++) {
                 const idx = i * 3;
 
-                // Oscilación horizontal + desplazamiento
-                positions[idx] += Math.sin(t + i) * data.speed * 0.01;
-                positions[idx + 1] += Math.cos(t + i) * data.speed * 0.005;
+                // Pequeñas variaciones aleatorias en X e Y
+                positions[idx] += (Math.random() - 0.5) * data.speed * 0.002;
+                positions[idx + 1] +=
+                  (Math.random() - 0.5) * data.speed * 0.002;
 
-                // Opcional: limitar posición en X/Y para que no se vayan muy lejos
+                // Opcional: ligera variación en Z para dar efecto 3D
+                positions[idx + 2] +=
+                  (Math.random() - 0.5) * data.speed * 0.001;
+
+                // Limitar para que no se alejen mucho de su posición base
                 if (positions[idx] > data.areaX / 2)
-                  positions[idx] = -data.areaX / 2;
-                if (positions[idx] < -data.areaX / 2)
                   positions[idx] = data.areaX / 2;
+                if (positions[idx] < -data.areaX / 2)
+                  positions[idx] = -data.areaX / 2;
                 if (positions[idx + 1] > data.areaY / 2)
-                  positions[idx + 1] = -data.areaY / 2;
-                if (positions[idx + 1] < -data.areaY / 2)
                   positions[idx + 1] = data.areaY / 2;
+                if (positions[idx + 1] < -data.areaY / 2)
+                  positions[idx + 1] = -data.areaY / 2;
               }
 
               pRef.geometry.attributes.position.needsUpdate = true;
