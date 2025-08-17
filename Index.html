@@ -6,249 +6,199 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
     />
-    <title>WebAR (AAC + AutoStart + Splash + Fix Android Low-End)</title>
-
-    <!-- Preload del icono (cambia la ruta por la tuya) -->
-    <link rel="preload" as="image" href="Img/IconSound.png" />
+    <title>WebAR – Sincronía + Crossfade Maestro + Spinner</title>
 
     <!-- Librerías -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
 
     <style>
-      :root {
-        --vh: 1vh;
-      }
-      html,
-      body {
-        height: 100%;
-      }
-      body {
-        margin: 0;
-        overflow: hidden;
-        background: #000;
-      }
+      :root { --vh: 1vh; }
+      html, body { height: 100%; }
+      body { margin:0; overflow:hidden; background:#000; -webkit-user-select:none; user-select:none; }
+
       #ar-container {
-        position: fixed;
-        inset: 0;
-        width: 100vw;
-        height: 100dvh;
-        height: calc(var(--vh) * 100);
+        position: fixed; inset: 0; width: 100vw;
+        height: 100dvh; height: calc(var(--vh) * 100);
       }
       #fps {
-        position: fixed;
-        right: 0.5rem;
-        bottom: 0.5rem;
-        color: #9ad;
-        font: 12px/1 system-ui;
-        opacity: 0.85;
+        position: fixed; right:.5rem; bottom:.5rem;
+        color:#9ad; font:12px/1 system-ui; opacity:.85;
+        text-shadow: 0 1px 2px rgba(0,0,0,.35);
+        z-index: 5;
       }
 
-      /* SPLASH de icono a pantalla completa */
+      /* Splash minimal (se auto-oculta) */
       #splash {
-        position: fixed;
-        inset: 0;
-        z-index: 20;
-        display: grid;
-        place-items: center;
-        background: rgba(0, 0, 0, 0.55);
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 220ms ease;
-        -webkit-tap-highlight-color: transparent;
+        position: fixed; inset:0; z-index:20; display:grid; place-items:center;
+        background: rgba(0,0,0,.5); opacity:0; pointer-events:none;
+        transition: opacity 220ms ease; -webkit-tap-highlight-color:transparent;
       }
-      #splash.show {
-        opacity: 1;
-        pointer-events: auto;
+      #splash.show { opacity:1; pointer-events:auto; }
+      #splash .card {
+        display:grid; gap:.75rem; place-items:center;
+        padding:1rem 1.25rem; border-radius:16px;
+        background: rgba(10,10,12,.65); color:#e8f1ff; text-align:center;
+        font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        box-shadow: 0 8px 30px rgba(0,0,0,.35);
       }
-      #splash .icon {
-        width: min(64vmin, 420px);
-        aspect-ratio: 1 / 1;
-        background: center / contain no-repeat;
-        image-rendering: -webkit-optimize-contrast;
-        will-change: transform, opacity;
-        animation: pop 320ms ease both;
+      #splash .btn {
+        user-select:none; cursor:pointer; padding:.6rem 1rem; border-radius:999px;
+        background:#4da3ff; color:#fff; font-weight:600;
       }
-      @keyframes pop {
-        from {
-          transform: scale(0.92);
-          opacity: 0;
-        }
-        to {
-          transform: scale(1);
-          opacity: 1;
-        }
+
+      /* Spinner ultraligero (solo si el reveal tarda) */
+      #spinner {
+        position: fixed; inset: 0;
+        display: grid; place-items: center;
+        z-index: 30;
+        pointer-events: none; /* no bloquea toques */
       }
+      #spinner[hidden] { display: none; }
+      #spinner .ring {
+        width: 32px; height: 32px;
+        border: 2.5px solid rgba(230, 239, 255, .25);
+        border-top-color: #4da3ff;
+        border-radius: 50%;
+        animation: spin .8s linear infinite;
+        box-shadow: 0 0 0 1px transparent;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
     <div id="ar-container"></div>
     <div id="fps" aria-hidden="true"></div>
+
+    <!-- Splash informativo: se auto-oculta, pero cualquier toque desbloquea audio -->
     <div id="splash" aria-hidden="false">
-      <div class="icon" id="splash-icon"></div>
+      <div class="card">
+        <div>Para activar sonido, toca una vez la pantalla.</div>
+        <div class="btn" id="btn-audio">Activar audio</div>
+      </div>
+    </div>
+
+    <!-- Spinner ultraligero (se muestra sólo si el reveal tarda) -->
+    <div id="spinner" hidden aria-hidden="true">
+      <div class="ring" role="status" aria-label="Cargando"></div>
     </div>
 
     <script type="module">
       /* ================= CONFIG ================= */
-      const SPLASH_ICON_URL = "Img/IconSound.png"; // ← cambia a tu PNG
-      const SPLASH_DURATION_MS = 1000; // 1s visible
+      const SPLASH_AUTOHIDE_MS = 1000; // el splash desaparece solo
+      const SPINNER_DELAY_MS = 800;    // muestra spinner si el reveal tarda más que esto
+      const VOLUMES_BY_AUDIOBASE = {
+        // Ajusta volúmenes por pista si lo necesitas (1.0 = 100%)
+        "Audio/PajarosSingle": 1.0,
+        "Audio/SoundVideo01": 1.0,
+        "Audio/Sonido_Video02": 1.0,
+      };
 
       /* ====== FIX 100vh iOS ====== */
       const fixVH = () => {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty("--vh", `${vh}px`);
       };
-      fixVH();
-      addEventListener("resize", fixVH);
-      addEventListener("orientationchange", fixVH);
+      fixVH(); addEventListener("resize", fixVH); addEventListener("orientationchange", fixVH);
 
       /* ====== Perfil de calidad ====== */
-      const detectarCalidad = () => { // metodo para detectar device
-        // true iphone metodo para abrir iphone
+      const detectarCalidad = () => {
         const mem = navigator.deviceMemory || 2;
         const cpu = navigator.hardwareConcurrency || 2;
-        if (mem <= 2 || cpu <= 4) return "low"; // en ipphone da 0, firefox for developer
+        if (mem <= 2 || cpu <= 4) return "low";
         if (mem <= 4) return "mid";
         return "hd";
       };
       const calidad = detectarCalidad();
-      const ENABLE_PARTICLES = calidad !== "low"; // en low, sin partículas
+      const ENABLE_PARTICLES = calidad !== "low";
+      const scaleByQuality = (n)=> calidad==="low"?0:calidad==="mid"?Math.round(n*0.6):n;
 
-      /* ====== Partículas con escalado ====== */
-      const scaleByQuality = (n) =>
-        calidad === "low" ? 0 : calidad === "mid" ? Math.round(n * 0.6) : n;
+      /* ====== Partículas ====== */
       const createPoints = (positions, size, color) => {
         const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute(
-          "position",
-          new THREE.BufferAttribute(positions, 3)
-        );
+        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
         const material = new THREE.PointsMaterial({
-          size,
-          color,
-          transparent: true,
-          opacity: 0.9,
-          depthWrite: false,
+          size, color, transparent:true, opacity:.9, depthWrite:false,
         });
         return new THREE.Points(geometry, material);
       };
       const Particles = {
-        rain: ({
-          count = 50,
-          areaY = 0.5,
-          speed = 0.01,
-          color = 0xffffff,
-          depthX = 0.1,
-          depthZ = 0.2,
-          size = 10,
-          position = { x: 0, y: 0, z: 0 },
-        }) => {
-          count = scaleByQuality(count);
-          if (!count) return null;
-          const positions = new Float32Array(count * 3);
-          for (let i = 0; i < count; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * depthX;
-            positions[i * 3 + 1] = Math.random() * areaY;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * depthZ;
+        rain: ({count=50, areaY=.5, speed=.01, color=0xffffff, depthX=.1, depthZ=.2, size=10, position={x:0,y:0,z:0}})=>{
+          count = scaleByQuality(count); if(!count) return null;
+          const positions = new Float32Array(count*3);
+          for (let i=0;i<count;i++) {
+            positions[i*3] = (Math.random()-.5)*depthX;
+            positions[i*3+1] = Math.random()*areaY;
+            positions[i*3+2] = (Math.random()-.5)*depthZ;
           }
           const p = createPoints(positions, size, color);
-          p.position.set(position.x || 0, position.y || 0, position.z || 0);
-          p.userData = { type: "rain", speed, areaY };
+          p.position.set(position.x||0, position.y||0, position.z||0);
+          p.userData = {type:"rain", speed, areaY};
           return p;
         },
-        foam: ({
-          count = 50,
-          areaY = 0.3,
-          areaX = 1,
-          speed = 0.002,
-          color = 0x33cfff,
-          depthX = 0.8,
-          depthZ = 0.02,
-          size = 10,
-          position = { x: 0, y: 0, z: 0 },
-        }) => {
-          count = scaleByQuality(count);
-          if (!count) return null;
-          const positions = new Float32Array(count * 3);
-          for (let i = 0; i < count; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * depthX;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * areaY;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * depthZ;
+        foam: ({count=50, areaY=.3, areaX=1, speed=.002, color=0x33cfff, depthX=.8, depthZ=.02, size=10, position={x:0,y:0,z:0}})=>{
+          count = scaleByQuality(count); if(!count) return null;
+          const positions = new Float32Array(count*3);
+          for (let i=0;i<count;i++) {
+            positions[i*3]     = (Math.random()-.5)*depthX;
+            positions[i*3+1]   = (Math.random()-.5)*areaY;
+            positions[i*3+2]   = (Math.random()-.5)*depthZ;
           }
           const p = createPoints(positions, size, color);
-          p.position.set(position.x || 0, position.y || 0, position.z || 0);
-          p.userData = { type: "foam", speed, areaY };
+          p.position.set(position.x||0, position.y||0, position.z||0);
+          p.userData = {type:"foam", speed, areaY};
           return p;
         },
-        dragonfly: ({
-          count = 10,
-          color = 0xffcc00,
-          areaY = 0.3,
-          areaX = 1,
-          speed = 0.002,
-          depthZ = 0.02,
-          size = 10,
-          position = { x: 0, y: 0, z: 0 },
-        }) => {
-          count = scaleByQuality(count);
-          if (!count) return null;
-          const positions = new Float32Array(count * 3);
-          for (let i = 0; i < count; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * areaX;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * areaY;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * depthZ;
+        dragonfly: ({count=10, color=0xffcc00, areaY=.3, areaX=1, speed=.002, depthZ=.02, size=10, position={x:0,y:0,z:0}})=>{
+          count = scaleByQuality(count); if(!count) return null;
+          const positions = new Float32Array(count*3);
+          for (let i=0;i<count;i++) {
+            positions[i*3]     = (Math.random()-.5)*areaX;
+            positions[i*3+1]   = (Math.random()-.5)*areaY;
+            positions[i*3+2]   = (Math.random()-.5)*depthZ;
           }
           const p = createPoints(positions, size, color);
-          p.position.set(position.x || 0, position.y || 0, position.z || 0);
-          p.userData = { type: "dragonfly", areaX, areaY, speed };
+          p.position.set(position.x||0, position.y||0, position.z||0);
+          p.userData = {type:"dragonfly", areaX, areaY, speed};
           return p;
         },
-        fire: ({
-          count = 30,
-          areaX = 0.25,
-          areaY = 0.25,
-          speed = 0.002,
-          color = 0xff3300,
-          size = 10,
-          position = { x: 0, y: 0, z: 0 },
-        }) => {
-          count = scaleByQuality(count);
-          if (!count) return null;
-          const positions = new Float32Array(count * 3);
-          for (let i = 0; i < count; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * areaX;
-            positions[i * 3 + 1] = Math.random() * areaY;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+        fire: ({count=30, areaX=.25, areaY=.25, speed=.002, color=0xff3300, size=10, position={x:0,y:0,z:0}})=>{
+          count = scaleByQuality(count); if(!count) return null;
+          const positions = new Float32Array(count*3);
+          for (let i=0;i<count;i++) {
+            positions[i*3]     = (Math.random()-.5)*areaX;
+            positions[i*3+1]   = Math.random()*areaY;
+            positions[i*3+2]   = (Math.random()-.5)*.5;
           }
           const p = createPoints(positions, size, color);
-          p.position.set(position.x || 0, position.y || 0, position.z || 0);
-          p.userData = { type: "fire", speed, areaY };
+          p.position.set(position.x||0, position.y||0, position.z||0);
+          p.userData = {type:"fire", speed, areaY};
           return p;
         },
       };
 
-      /* ====== Shader de croma (con precision para Android) ====== */
-      const makeChromaMaterial = (texture, key = 0x0f00da) => {
+      /* ====== Shader de croma (precision Android) ====== */
+      const makeChromaMaterial = (texture, key=0x0f00da) => {
         const col = new THREE.Color(key);
         return new THREE.ShaderMaterial({
           uniforms: {
-            map: { value: texture },
-            keyColor: { value: col },
-            similarity: { value: 0.15 },
-            smoothness: { value: 0.6 },
+            map: {value:texture}, keyColor: {value:col},
+            similarity: {value:.15}, smoothness:{value:.6}
           },
-          transparent: true,
-          vertexShader: `
-            precision mediump float; // <- importante para Android
+          transparent:true,
+          vertexShader:`
+            precision mediump float;
             varying vec2 vUv;
-            void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+            void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }
           `,
-          fragmentShader: `
-            precision mediump float; // <- importante para Android
-            uniform sampler2D map; uniform vec3 keyColor; uniform float similarity; uniform float smoothness; varying vec2 vUv;
+          fragmentShader:`
+            precision mediump float;
+            uniform sampler2D map; uniform vec3 keyColor;
+            uniform float similarity; uniform float smoothness;
+            varying vec2 vUv;
             void main(){
               vec4 tex = texture2D(map, vUv);
-              float Y = dot(tex.rgb, vec3(0.2989, 0.5866, 0.1145));
+              float Y = dot(tex.rgb, vec3(0.2989,0.5866,0.1145));
               float Cr = tex.r - Y; float Cb = tex.b - Y;
               float Yk = dot(keyColor.rgb, vec3(0.2989,0.5866,0.1145));
               float Crk = keyColor.r - Yk; float Cbk = keyColor.b - Yk;
@@ -269,696 +219,327 @@
       });
       const { renderer, scene, camera } = mindarThree;
 
-      // Pixel ratio más agresivo en low-end
-      const pxr = calidad === "low" ? 0.75 : calidad === "mid" ? 1.0 : 1.25;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pxr));
-      if (renderer.outputEncoding !== undefined)
-        renderer.outputEncoding = THREE.sRGBEncoding;
-      try {
-        renderer.getContext().getContextAttributes().powerPreference =
-          "low-power";
-      } catch (e) {}
+      // Pixel ratio adaptativo
+      const pxr = calidad==="low"?0.75:calidad==="mid"?1.0:1.25;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, pxr));
+      if (renderer.outputEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
+      try { renderer.getContext().getContextAttributes().powerPreference = "low-power"; } catch{}
 
-      // Geometría compartida
       const sharedPlane = new THREE.PlaneGeometry(0.9, 0.8);
 
-      /* ====== SOLO AAC (.m4a) ====== */
-      const pickAAC = (basePath) => `${basePath}.m4a`;
+      /* ====== Solo AAC (.m4a) ====== */
+      const pickAAC = (basePath)=> `${basePath}.m4a`;
+
+      /* ====== Audio Manager con Crossfade Maestro ====== */
+      class WebAudioManager {
+        constructor() {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new Ctx();
+          this.buffers = new Map();   // key -> AudioBuffer
+          this.playing = new Map();   // key -> { src, gain, baseVol, stopTimer? }
+          this.master = this.ctx.createGain();
+          this.master.gain.value = 1;
+          this.master.connect(this.ctx.destination);
+          this.unlocked = this.ctx.state === "running";
+
+          // Config del crossfade maestro
+          this.cross = {
+            enabled: true,
+            backgroundLevel: 0.18, // 0 = solo; 0.18 ≈ -15 dB; 0.3 ≈ -10 dB
+            fadeMs: 700
+          };
+          this.focusKey = null;
+        }
+        async resume() {
+          if (this.ctx.state !== "running") { await this.ctx.resume(); }
+          this.unlocked = true;
+        }
+        async load(basePath) {
+          if (this.buffers.has(basePath)) return this.buffers.get(basePath);
+          const url = pickAAC(basePath);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`Audio no encontrado: ${url} (${res.status})`);
+          const arr = await res.arrayBuffer();
+          const buf = await this.ctx.decodeAudioData(arr);
+          this.buffers.set(basePath, buf);
+          return buf;
+        }
+        _rampTo(gainNode, target, ms = this.cross.fadeMs) {
+          const now = this.ctx.currentTime;
+          gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+          gainNode.gain.linearRampToValueAtTime(target, now + ms / 1000);
+        }
+        async playLoop(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
+          const buf = await this.load(basePath);
+          if (this.playing.has(basePath)) {
+            const h = this.playing.get(basePath);
+            h.baseVol = volume;
+            this._rampTo(h.gain, volume, fadeMs);
+            return h;
+          }
+          const src = this.ctx.createBufferSource();
+          src.buffer = buf;
+          src.loop = true;
+          const gain = this.ctx.createGain();
+          gain.gain.value = 0; // fade-in
+          src.connect(gain).connect(this.master);
+          src.start(0);
+          const handle = { src, gain, baseVol: volume, stopTimer: null };
+          this.playing.set(basePath, handle);
+          this._rampTo(gain, volume, fadeMs);
+          return handle;
+        }
+        stopWithFade(basePath, fadeMs = this.cross.fadeMs) {
+          const h = this.playing.get(basePath);
+          if (!h) return;
+          if (h.stopTimer) { clearTimeout(h.stopTimer); h.stopTimer = null; }
+          this._rampTo(h.gain, 0, fadeMs);
+          h.stopTimer = setTimeout(() => {
+            try { h.src.stop(0); } catch {}
+            try { h.src.disconnect(); h.gain.disconnect(); } catch {}
+            this.playing.delete(basePath);
+            if (this.focusKey === basePath) this.focusKey = null;
+          }, fadeMs + 30);
+        }
+        stop(basePath) {
+          const h = this.playing.get(basePath);
+          if (!h) return;
+          try { h.src.stop(0); } catch {}
+          try { h.src.disconnect(); h.gain.disconnect(); } catch {}
+          if (h.stopTimer) clearTimeout(h.stopTimer);
+          this.playing.delete(basePath);
+          if (this.focusKey === basePath) this.focusKey = null;
+        }
+        stopAllWithFade(ms = 250) {
+          for (const k of Array.from(this.playing.keys())) this.stopWithFade(k, ms);
+        }
+        stopAll() {
+          for (const k of Array.from(this.playing.keys())) this.stop(k);
+        }
+        // Crossfade maestro: sube foco y baja resto a backgroundLevel
+        masterCrossfadeTo(basePath, fadeMs = this.cross.fadeMs) {
+          if (!this.cross.enabled) return;
+          this.focusKey = basePath;
+          for (const [k, h] of this.playing.entries()) {
+            const targetVol = (k === basePath)
+              ? h.baseVol
+              : h.baseVol * this.cross.backgroundLevel;
+            this._rampTo(h.gain, targetVol, fadeMs);
+          }
+        }
+        setCrossfadeConfig({ backgroundLevel, fadeMs }) {
+          if (typeof backgroundLevel === "number") this.cross.backgroundLevel = backgroundLevel;
+          if (typeof fadeMs === "number") this.cross.fadeMs = fadeMs;
+        }
+      }
+      const AudioMgr = new WebAudioManager();
+      let audioUnlocked = AudioMgr.unlocked;
 
       /* ====== Definición de targets ====== */
       const targets = [
-        {
-          index: 0,
-          audioBase: "Audio/PajarosSingle",
-          layers: [
-            {
-              src: "Animations/Video00_ConFondo.mp4",
-              x: 0.03,
-              scale: 0.92,
-              chroma: "0xDCCD00",
-            },
-            {
-              src: "Animations/Video00_Titulo.mp4",
-              z: 0.1,
-              y: 0.1,
-              x: -0.01,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 1,
-          audioBase: "Audio/SoundVideo01",
-          layers: [
-            {
-              src: "Animations/Video01_FondoConFondo.mp4",
-              z: -0.02,
-              x: -0.08,
-              y: 0.02,
-              scale: 0.9,
-              chroma: "0x0f00da",
-            },
-            { src: "Animations/Video01_Mitad.mp4", z: 0.1, chroma: "0x0f00da" },
-          ],
-        },
-        {
-          index: 2,
-          audioBase: "Audio/Sonido_Video02",
-          layers: [
-            {
-              src: "Animations/Video02.mp4",
-              z: 0.1,
-              x: -0.05,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 3,
-          audioBase: "Audio/Sonido_Video03",
-          layers: [
-            { src: "Animations/Video03_Mitad.mp4", z: 0, chroma: "0x0f00da" },
-            {
-              src: "Animations/Video03_Frente.mp4",
-              z: 0.1,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 4,
-          audioBase: "Audio/Sonido_Video04",
-          layers: [
-            {
-              src: "Animations/Video04.mp4",
-              z: 0.1,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 5,
-          audioBase: "Audio/Sonido_Video05",
-          layers: [
-            {
-              src: "Animations/Video05_ConFondo.mp4",
-              z: 0.0,
-              scale: 1.1,
-              x: 0.08,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 6,
-          audioBase: "Audio/Sonido_Video06",
-          layers: [
-            {
-              src: "Animations/Video06_Fondo.mp4",
-              z: 0.02,
-              x: -0.08,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-            {
-              src: "Animations/Video06_Frente.mp4",
-              z: 0.05,
-              x: -0.08,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 7,
-          audioBase: "Audio/Sonido_Video07",
-          layers: [
-            { src: "Animations/Video07.mp4", z: 0.2, chroma: "0x0f00da" },
-          ],
-        },
-        {
-          index: 8,
-          audioBase: "Audio/Sonido_Video07",
-          layers: [
-            {
-              src: "Animations/Video08.mp4",
-              z: 0,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 9,
-          audioBase: "Audio/Sonido_Video07",
-          layers: [
-            {
-              src: "Animations/Video09.mp4",
-              z: 0,
-              y: -0.1,
-              scale: 1.0,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 10,
-          audioBase: "Audio/Sonido_Video10",
-          layers: [
-            {
-              src: "Animations/Video10.mp4",
-              z: 0.02,
-              y: 0.1,
-              x: 0.1,
-              scale: 1.5,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 11,
-          audioBase: "Audio/Sonido_Video11",
-          layers: [
-            {
-              src: "Animations/Video11.mp4",
-              z: 0.1,
-              scale: 1.1,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 12,
-          audioBase: "Audio/Sonido_Video12",
-          layers: [
-            { src: "Animations/Video12.mp4", z: 0.1, chroma: "0x0f00da" },
-          ],
-        },
-        {
-          index: 13,
-          audioBase: "Audio/Sonido_Video13",
-          layers: [
-            { src: "Animations/Video13.mp4", z: 0.1, chroma: "0x0f00da" },
-          ],
-        },
-        {
-          index: 14,
-          audioBase: "Audio/Sonido_Video13",
-          layers: [
-            {
-              src: "Animations/Video14.mp4",
-              z: 0,
-              y: 0.1,
-              scale: 1.3,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 15,
-          audioBase: "Audio/Sonido_Video15",
-          layers: [
-            {
-              src: "Animations/Video15.mp4",
-              z: 0,
-              x: -0.1,
-              y: 0.1,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 16,
-          audioBase: "Audio/Sonido_Video16",
-          layers: [
-            {
-              src: "Animations/Video16.mp4",
-              z: 0,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 17,
-          audioBase: "Audio/Sonido_Video13",
-          layers: [
-            {
-              src: "Animations/Video17.mp4",
-              z: 0,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 18,
-          audioBase: "Audio/Sonido_Video18",
-          layers: [
-            {
-              src: "Animations/Video18.mp4",
-              scale: 1.2,
-              y: 0.08,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 19,
-          audioBase: "Audio/Sonido_Video19",
-          layers: [
-            { src: "Animations/Video19.mp4", y: -0.08, chroma: "0x0f00da" },
-          ],
-        },
-        {
-          index: 20,
-          audioBase: "Audio/Sonido_Video20",
-          layers: [
-            {
-              src: "Animations/Video20Fondo.mp4",
-              z: 0,
-              y: 0.05,
-              x: 0.05,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-            {
-              src: "Animations/Video20Frente.mp4",
-              z: 0.2,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 21,
-          audioBase: "Audio/Sonido_Video04",
-          layers: [{ src: "Animations/Video21.mp4", z: 0, chroma: "0x0f00da" }],
-        },
-        {
-          index: 22,
-          audioBase: "Audio/Sonido_Video22",
-          layers: [
-            {
-              src: "Animations/Video22.mp4",
-              z: 0,
-              y: 0.15,
-              scale: 1.05,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 23,
-          audioBase: "Audio/PajarosSingle",
-          layers: [
-            {
-              src: "Animations/Video23.mp4",
-              scale: 1.1,
-              y: 0.02,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 24,
-          audioBase: "Audio/Sonido_Video10",
-          layers: [
-            {
-              src: "Animations/Video24.mp4",
-              scale: 1.15,
-              x: 0.02,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 25,
-          audioBase: "Audio/Sonido_Video25",
-          layers: [
-            {
-              src: "Animations/Video25.mp4",
-              z: 0,
-              scale: 1.5,
-              y: -0.1,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 26,
-          audioBase: "Audio/Sonido_Video22",
-          layers: [
-            {
-              src: "Animations/Video26.mp4",
-              scale: 0.8,
-              y: -0.05,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 27,
-          audioBase: "Audio/Sonido_Video27",
-          layers: [
-            {
-              src: "Animations/Video27.mp4",
-              z: 0,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 28,
-          audioBase: "Audio/Sonido_Video28",
-          layers: [
-            {
-              src: "Animations/Video28.mp4",
-              z: 0,
-              scale: 1.2,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 29,
-          audioBase: "Audio/Sonido_Video29",
-          layers: [
-            {
-              src: "Animations/Video29.mp4",
-              z: 0,
-              scale: 1.2,
-              y: 0.1,
-              x: -0.1,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
-        {
-          index: 30,
-          audioBase: "Audio/PajarosSingle",
-          layers: [
-            {
-              src: "Animations/Video30.mp4",
-              z: 0.1,
-              x: 0.04,
-              y: 0,
-              scale: 1.1,
-              chroma: "0x0f00da",
-            },
-          ],
-        },
+        { index:0,  audioBase:"Audio/PajarosSingle",   layers:[
+          { src:"Animations/Video00_ConFondo.mp4", x:0.03, scale:.92, chroma:"0xDCCD00" },
+          { src:"Animations/Video00_Titulo.mp4",   z:.1, y:.1, x:-.01, chroma:"0x0f00da" },
+        ]},
+        { index:1,  audioBase:"Audio/SoundVideo01",   layers:[
+          { src:"Animations/Video01_FondoConFondo.mp4", z:-.02, x:-.08, y:.02, scale:.9, chroma:"0x0f00da" },
+          { src:"Animations/Video01_Mitad.mp4",        z:.1, chroma:"0x0f00da" },
+        ]},
+        { index:2,  audioBase:"Audio/Sonido_Video02", layers:[
+          { src:"Animations/Video02.mp4", z:.1, x:-.05, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:3,  audioBase:"Audio/Sonido_Video03", layers:[
+          { src:"Animations/Video03_Mitad.mp4", z:0,   chroma:"0x0f00da" },
+          { src:"Animations/Video03_Frente.mp4", z:.1, chroma:"0x0f00da" },
+        ]},
+        { index:4,  audioBase:"Audio/Sonido_Video04", layers:[
+          { src:"Animations/Video04.mp4", z:.1, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:5,  audioBase:"Audio/Sonido_Video05", layers:[
+          { src:"Animations/Video05_ConFondo.mp4", z:0, scale:1.1, x:.08, chroma:"0x0f00da" },
+        ]},
+        { index:6,  audioBase:"Audio/Sonido_Video06", layers:[
+          { src:"Animations/Video06_Fondo.mp4",  z:.02, x:-.08, scale:1.2, chroma:"0x0f00da" },
+          { src:"Animations/Video06_Frente.mp4", z:.05, x:-.08, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:7,  audioBase:"Audio/Sonido_Video07", layers:[
+          { src:"Animations/Video07.mp4", z:.2, chroma:"0x0f00da" },
+        ]},
+        { index:8,  audioBase:"Audio/Sonido_Video07", layers:[
+          { src:"Animations/Video08.mp4", z:0, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:9,  audioBase:"Audio/Sonido_Video07", layers:[
+          { src:"Animations/Video09.mp4", z:0, y:-.1, scale:1.0, chroma:"0x0f00da" },
+        ]},
+        { index:10, audioBase:"Audio/Sonido_Video10", layers:[
+          { src:"Animations/Video10.mp4", z:.02, y:.1, x:.1, scale:1.5, chroma:"0x0f00da" },
+        ]},
+        { index:11, audioBase:"Audio/Sonido_Video11", layers:[
+          { src:"Animations/Video11.mp4", z:.1, scale:1.1, chroma:"0x0f00da" },
+        ]},
+        { index:12, audioBase:"Audio/Sonido_Video12", layers:[
+          { src:"Animations/Video12.mp4", z:.1, chroma:"0x0f00da" },
+        ]},
+        { index:13, audioBase:"Audio/Sonido_Video13", layers:[
+          { src:"Animations/Video13.mp4", z:.1, chroma:"0x0f00da" },
+        ]},
+        { index:14, audioBase:"Audio/Sonido_Video13", layers:[
+          { src:"Animations/Video14.mp4", z:0, y:.1, scale:1.3, chroma:"0x0f00da" },
+        ]},
+        { index:15, audioBase:"Audio/Sonido_Video15", layers:[
+          { src:"Animations/Video15.mp4", z:0, x:-.1, y:.1, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:16, audioBase:"Audio/Sonido_Video16", layers:[
+          { src:"Animations/Video16.mp4", z:0, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:17, audioBase:"Audio/Sonido_Video13", layers:[
+          { src:"Animations/Video17.mp4", z:0, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:18, audioBase:"Audio/Sonido_Video18", layers:[
+          { src:"Animations/Video18.mp4", scale:1.2, y:.08, chroma:"0x0f00da" },
+        ]},
+        { index:19, audioBase:"Audio/Sonido_Video19", layers:[
+          { src:"Animations/Video19.mp4", y:-.08, chroma:"0x0f00da" },
+        ]},
+        { index:20, audioBase:"Audio/Sonido_Video20", layers:[
+          { src:"Animations/Video20Fondo.mp4", z:0, y:.05, x:.05, scale:1.2, chroma:"0x0f00da" },
+          { src:"Animations/Video20Frente.mp4", z:.2, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:21, audioBase:"Audio/Sonido_Video04", layers:[
+          { src:"Animations/Video21.mp4", z:0, chroma:"0x0f00da" },
+        ]},
+        { index:22, audioBase:"Audio/Sonido_Video22", layers:[
+          { src:"Animations/Video22.mp4", z:0, y:.15, scale:1.05, chroma:"0x0f00da" },
+        ]},
+        { index:23, audioBase:"Audio/PajarosSingle", layers:[
+          { src:"Animations/Video23.mp4", scale:1.1, y:.02, chroma:"0x0f00da" },
+        ]},
+        { index:24, audioBase:"Audio/Sonido_Video10", layers:[
+          { src:"Animations/Video24.mp4", scale:1.15, x:.02, chroma:"0x0f00da" },
+        ]},
+        { index:25, audioBase:"Audio/Sonido_Video25", layers:[
+          { src:"Animations/Video25.mp4", z:0, scale:1.5, y:-.1, chroma:"0x0f00da" },
+        ]},
+        { index:26, audioBase:"Audio/Sonido_Video22", layers:[
+          { src:"Animations/Video26.mp4", scale:.8, y:-.05, chroma:"0x0f00da" },
+        ]},
+        { index:27, audioBase:"Audio/Sonido_Video27", layers:[
+          { src:"Animations/Video27.mp4", z:0, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:28, audioBase:"Audio/Sonido_Video28", layers:[
+          { src:"Animations/Video28.mp4", z:0, scale:1.2, chroma:"0x0f00da" },
+        ]},
+        { index:29, audioBase:"Audio/Sonido_Video29", layers:[
+          { src:"Animations/Video29.mp4", z:0, scale:1.2, y:.1, x:-.1, chroma:"0x0f00da" },
+        ]},
+        { index:30, audioBase:"Audio/PajarosSingle", layers:[
+          { src:"Animations/Video30.mp4", z:.1, x:.04, y:0, scale:1.1, chroma:"0x0f00da" },
+        ]},
       ];
 
-      // Partículas mapeadas (mismo mapa, pero se crean bajo demanda y NO en low)
+      // Partículas por target
       const particleMap = {
-        0: {
-          type: "foam",
-          params: {
-            count: 300,
-            areaY: 0.2,
-            areaX: 5,
-            speed: 0.0002,
-            size: 15,
-            color: 0xffff,
-            position: { x: 0, y: -0.25, z: 0.1 },
-          },
-        },
-        1: {
-          type: "rain",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            depthX: 1,
-            speed: 0.005,
-            size: 7,
-            color: 0x3642fa,
-          },
-        },
-        2: {
-          type: "dragonfly",
-          params: {
-            count: 100,
-            size: 12,
-            color: 0xc020fa,
-            speed: 3,
-            areaX: 0.7,
-            areaY: 0.7,
-          },
-        },
-        3: {
-          type: "rain",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            depthX: 0.8,
-            speed: 0.005,
-            size: 10,
-            color: 0x3642fa,
-          },
-        },
-        5: {
-          type: "foam",
-          params: {
-            count: 300,
-            areaY: 0.6,
-            areaX: 6,
-            speed: 0.008,
-            size: 10,
-            color: 0xffff,
-            position: { x: 0, y: 0, z: -0.1 },
-          },
-        },
-        11: {
-          type: "foam",
-          params: {
-            count: 200,
-            areaY: 0.5,
-            areaX: 5,
-            speed: 0.0008,
-            size: 10,
-            color: 0xf00111,
-            position: { x: 0, y: 0, z: -0.1 },
-          },
-        },
-        12: {
-          type: "foam",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            areaX: 5,
-            depthZ: -0.5,
-            speed: 0.0008,
-            size: 10,
-            color: 0xf00111,
-            position: { x: 0, y: 0.1, z: 0.2 },
-          },
-        },
-        13: {
-          type: "fire",
-          params: {
-            count: 50,
-            areaY: 0.3,
-            speed: 0.0008,
-            size: 0.001,
-            color: 0xff3300,
-            position: { x: 0.18, y: -0.14, z: 0.2 },
-          },
-        },
-        14: {
-          type: "fire",
-          params: {
-            count: 100,
-            areaY: 0.3,
-            areaX: 0.5,
-            size: 18,
-            color: 0xff3300,
-            position: { x: 0.1, y: 0, z: -0.1 },
-          },
-        },
-        15: {
-          type: "foam",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            areaX: 6,
-            speed: 0.0008,
-            size: 10,
-            color: 0xff3300,
-            position: { x: 0, y: 0.1, z: -0.1 },
-          },
-        },
-        16: {
-          type: "fire",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            areaX: 0.7,
-            speed: 0.0008,
-            size: 10,
-            color: 0xff3300,
-            position: { x: 0, y: -0.3, z: -0.1 },
-          },
-        },
-        17: {
-          type: "foam",
-          params: {
-            count: 100,
-            areaY: 0.9,
-            areaX: 0.9,
-            speed: 0.0008,
-            size: 10,
-            color: 0xff3300,
-            position: { x: -0.1, y: -0.06, z: -0.1 },
-          },
-        },
-        19: {
-          type: "fire",
-          params: {
-            count: 50,
-            areaY: 0.1,
-            size: 0.01,
-            color: 0xff3300,
-            position: { x: -0.08, y: -0.05, z: 0.2 },
-          },
-        },
-        20: {
-          type: "rain",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            depthX: 1,
-            speed: 0.005,
-            size: 0.01,
-            color: 0x3642fa,
-            position: { x: 0, y: 0, z: 0.3 },
-          },
-        },
-        24: {
-          type: "fire",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            areaX: 0.5,
-            speed: 0.0008,
-            size: 10,
-            color: 0xce88d8,
-            position: { x: -0.1, y: -0.3, z: -0.1 },
-          },
-        },
-        25: {
-          type: "foam",
-          params: {
-            count: 300,
-            areaY: 0.3,
-            areaX: 10,
-            speed: 0.0008,
-            size: 10,
-            color: 0xffff,
-            position: { x: 0, y: -0.2, z: 0.2 },
-          },
-        },
-        28: {
-          type: "rain",
-          params: {
-            count: 300,
-            areaY: 0.7,
-            depthX: 1,
-            speed: 0.0005,
-            size: 25,
-            color: 0x9b3496,
-            position: { x: 0, y: -0.2, z: -0.1 },
-          },
-        },
-        29: {
-          type: "foam",
-          params: {
-            count: 300,
-            areaY: 0.8,
-            areaX: 10,
-            speed: 0.0008,
-            size: 10,
-            color: 0xffff,
-            position: { x: 0, y: 0, z: -0.1 },
-          },
-        },
-        30: {
-          type: "foam",
-          params: {
-            count: 100,
-            areaY: 0.8,
-            areaX: 10,
-            speed: 0.0008,
-            size: 10,
-            color: 0xfce733,
-            position: { x: 0, y: 0, z: -0.1 },
-          },
-        },
+        0:{type:"foam", params:{count:300,areaY:.2,areaX:5,speed:.0002,size:15,color:0xffff,position:{x:0,y:-.25,z:.1}}},
+        1:{type:"rain", params:{count:300,areaY:.7,depthX:1,speed:.005,size:7,color:0x3642fa}},
+        2:{type:"dragonfly", params:{count:100,size:12,color:0xc020fa,speed:3,areaX:.7,areaY:.7}},
+        3:{type:"rain", params:{count:300,areaY:.7,depthX:.8,speed:.005,size:10,color:0x3642fa}},
+        5:{type:"foam", params:{count:300,areaY:.6,areaX:6,speed:.008,size:10,color:0xffff,position:{x:0,y:0,z:-.1}}},
+        11:{type:"foam", params:{count:200,areaY:.5,areaX:5,speed:.0008,size:10,color:0xf00111,position:{x:0,y:0,z:-.1}}},
+        12:{type:"foam", params:{count:300,areaY:.7,areaX:5,depthZ:-.5,speed:.0008,size:10,color:0xf00111,position:{x:0,y:.1,z:.2}}},
+        13:{type:"fire", params:{count:50,areaY:.3,speed:.0008,size:.001,color:0xff3300,position:{x:.18,y:-.14,z:.2}}},
+        14:{type:"fire", params:{count:100,areaY:.3,areaX:.5,size:18,color:0xff3300,position:{x:.1,y:0,z:-.1}}},
+        15:{type:"foam", params:{count:300,areaY:.7,areaX:6,speed:.0008,size:10,color:0xff3300,position:{x:0,y:.1,z:-.1}}},
+        16:{type:"fire", params:{count:300,areaY:.7,areaX:.7,speed:.0008,size:10,color:0xff3300,position:{x:0,y:-.3,z:-.1}}},
+        17:{type:"foam", params:{count:100,areaY:.9,areaX:.9,speed:.0008,size:10,color:0xff3300,position:{x:-.1,y:-.06,z:-.1}}},
+        19:{type:"fire", params:{count:50,areaY:.1,size:.01,color:0xff3300,position:{x:-.08,y:-.05,z:.2}}},
+        20:{type:"rain", params:{count:300,areaY:.7,depthX:1,speed:.005,size:.01,color:0x3642fa,position:{x:0,y:0,z:.3}}},
+        24:{type:"fire", params:{count:300,areaY:.7,areaX:.5,speed:.0008,size:10,color:0xce88d8,position:{x:-.1,y:-.3,z:-.1}}},
+        25:{type:"foam", params:{count:300,areaY:.3,areaX:10,speed:.0008,size:10,color:0xffff,position:{x:0,y:-.2,z:.2}}},
+        28:{type:"rain", params:{count:300,areaY:.7,depthX:1,speed:.0005,size:25,color:0x9b3496,position:{x:0,y:-.2,z:-.1}}},
+        29:{type:"foam", params:{count:300,areaY:.8,areaX:10,speed:.0008,size:10,color:0xffff,position:{x:0,y:0,z:-.1}}},
+        30:{type:"foam", params:{count:100,areaY:.8,areaX:10,speed:.0008,size:10,color:0xfce733,position:{x:0,y:0,z:-.1}}},
       };
 
       // Estado
       const activeTargets = new Set();
-      let audioUnlocked = false;
 
-      /* ====== Helpers: video sin flash negro, y espera de primer frame ====== */
-      const waitFirstFrame = (video) =>
-        new Promise((resolve) => {
-          const done = () => {
-            cleanup();
-            resolve();
-          };
-          const cleanup = () => {
-            video.removeEventListener("playing", done);
-            video.removeEventListener("loadeddata", done);
-            video.removeEventListener("seeked", done);
-          };
-          if (typeof video.requestVideoFrameCallback === "function") {
-            video.requestVideoFrameCallback(() => {
-              done();
-            });
-          } else {
-            video.addEventListener("playing", done, { once: true });
-            video.addEventListener("loadeddata", done, { once: true });
-            video.addEventListener("seeked", done, { once: true });
-          }
-        });
-      const primeVideoFrame = async (video) => {
-        try {
-          await video.play();
-        } catch (e) {}
-        try {
-          video.pause();
-        } catch (e) {}
-        try {
-          video.currentTime = 0.03;
-        } catch (e) {}
+      /* ====== Spinner helpers ====== */
+      let spinnerTimer = null;
+      const spinnerEl = document.getElementById("spinner");
+      const showSpinner = () => { spinnerEl?.removeAttribute("hidden"); };
+      const hideSpinner = () => {
+        if (spinnerTimer) { clearTimeout(spinnerTimer); spinnerTimer = null; }
+        spinnerEl?.setAttribute("hidden", "");
       };
-      const revealOnFirstFrame = (video, mesh) => {
-        mesh.visible = false;
-        const show = () => {
-          mesh.visible = true;
-          cleanup();
-        };
+
+      /* ====== Helpers video/sincronía ====== */
+      const waitVideoFirstFrame = (video, maxWaitMs = 2500) => new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; cleanup(); resolve(); } };
         const cleanup = () => {
-          video.removeEventListener("playing", show);
-          video.removeEventListener("seeked", show);
-          video.removeEventListener("loadeddata", show);
+          video.removeEventListener("playing", finish);
+          video.removeEventListener("loadeddata", finish);
+          video.removeEventListener("seeked", finish);
         };
         if (typeof video.requestVideoFrameCallback === "function") {
-          video.requestVideoFrameCallback(() => show());
+          const cb = () => finish();
+          video.requestVideoFrameCallback(cb);
         } else {
-          video.addEventListener("playing", show, { once: true });
-          video.addEventListener("seeked", show, { once: true });
-          video.addEventListener("loadeddata", show, { once: true });
+          video.addEventListener("playing", finish, { once: true });
+          video.addEventListener("loadeddata", finish, { once: true });
+          video.addEventListener("seeked", finish, { once: true });
         }
+        setTimeout(finish, maxWaitMs);
+      });
+
+      const prepareVideo = async (video) => {
+        try { video.muted = true; video.loop = true; video.preload = "auto"; } catch {}
+        try { await video.play(); } catch {}
+        try { video.pause(); } catch {}
+        try { video.currentTime = 0.03; } catch {}
+        await waitVideoFirstFrame(video);
       };
 
+      const prewarmMaterials = () => new Promise((res) => {
+        requestAnimationFrame(() => res());
+      });
+
+      async function revealInSync(target) {
+        // Generational token para cancelar ciclos viejos
+        target._gen = (target._gen || 0) + 1;
+        const myGen = target._gen;
+
+        // Arranca temporizador del spinner
+        if (spinnerTimer) { clearTimeout(spinnerTimer); }
+        spinnerTimer = setTimeout(() => showSpinner(), SPINNER_DELAY_MS);
+
+        // Oculta todo antes de preparar
+        target.layerObjs.forEach(({ mesh }) => mesh.visible = false);
+        if (target.particles) target.particles.visible = false;
+
+        // 1) Preparar todos los videos al primer frame
+        const videos = target.layerObjs.map(o => o.video);
+        await Promise.all(videos.map(v => prepareVideo(v)));
+
+        // 2) Prewarm shaders/materiales
+        await prewarmMaterials();
+
+        // Cancelar si cambió el estado
+        if (target._gen !== myGen) { hideSpinner(); return; }
+
+        // 3) Revelar TODO al unísono
+        videos.forEach(v => { try { v.currentTime = 0; } catch {} });
+        await new Promise(r => requestAnimationFrame(r));
+        target.layerObjs.forEach(({ mesh }) => mesh.visible = true);
+        videos.forEach(v => v.play().catch(()=>{}));
+        if (target.particles) target.particles.visible = true;
+
+        hideSpinner();
+      }
+
+      /* ====== Crear capa de video ====== */
       const createVideoLayer = (layerCfg) => {
-        const { src, z = 0, x = 0, y = 0, scale = 1, chroma } = layerCfg;
+        const { src, z=0, x=0, y=0, scale=1, chroma } = layerCfg;
         const video = document.createElement("video");
         video.crossOrigin = "anonymous";
         video.loop = true;
@@ -975,77 +556,56 @@
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
         if ("colorSpace" in texture) texture.colorSpace = THREE.SRGBColorSpace;
-        video.addEventListener("loadeddata", () => {
-          texture.needsUpdate = true;
-        });
+        video.addEventListener("loadeddata", ()=>{ texture.needsUpdate = true; });
 
         const geom = sharedPlane.clone();
-        const uv = geom.attributes.uv.array;
-        uv[0] = 0.01;
-        uv[2] = 0.99;
-        uv[4] = 0.01;
-        uv[6] = 0.99;
+        const uv = geom.attributes.uv.array; // leve recorte de bordes
+        uv[0]=0.01; uv[2]=0.99; uv[4]=0.01; uv[6]=0.99;
         geom.attributes.uv.needsUpdate = true;
 
         const material =
-          typeof chroma === "string" && chroma
-            ? makeChromaMaterial(texture, Number(chroma.replace("#", "0x")))
-            : new THREE.MeshBasicMaterial({ map: texture, transparent: false });
+          typeof chroma==="string" && chroma
+            ? makeChromaMaterial(texture, Number(chroma.replace("#","0x")))
+            : new THREE.MeshBasicMaterial({ map:texture, transparent:false });
 
         const mesh = new THREE.Mesh(geom, material);
-        mesh.position.set(x, y, z);
+        mesh.position.set(x,y,z);
         mesh.scale.set(scale, scale, 1);
-        revealOnFirstFrame(video, mesh);
+        mesh.visible = false; // el reveal es orquestado en bloque
         return { video, texture, mesh };
       };
 
-      const disposeLayer = (layer) => {
+      const disposeLayer = (layer)=>{
         if (!layer) return;
-        try {
-          layer.video.pause();
-        } catch (e) {}
-        if (layer.texture) {
-          layer.texture.dispose();
-        }
+        try { layer.video.pause(); } catch {}
+        if (layer.texture) { layer.texture.dispose(); }
         if (layer.mesh) {
-          if (layer.mesh.material?.map?.dispose)
-            layer.mesh.material.map.dispose();
+          if (layer.mesh.material?.map?.dispose) layer.mesh.material.map.dispose();
           if (layer.mesh.material?.dispose) layer.mesh.material.dispose();
           if (layer.mesh.geometry?.dispose) layer.mesh.geometry.dispose();
         }
       };
 
-      // ====== Crear anchors/recursos con carga perezosa ======
-      targets.forEach((t) => {
+      // ====== Anchors y lógica por target ======
+      targets.forEach((t)=>{
         const anchor = mindarThree.addAnchor(t.index);
         t.anchor = anchor;
         t.layersCreated = false;
         t.layerObjs = [];
-        t.audioObj = null;
         t.cleanupTimeout = null;
         t.particles = null;
 
-        const ensureAudio = () => {
-          if (t.audioObj) return;
-          const audio = new Audio(pickAAC(t.audioBase));
-          audio.loop = true;
-          audio.preload = "auto";
-          audio.crossOrigin = "anonymous";
-          t.audioObj = audio;
-        };
-
-        const ensureLayers = async () => {
+        const ensureLayers = async ()=>{
           if (t.layersCreated) return;
           for (const layerCfg of t.layers) {
             const obj = createVideoLayer(layerCfg);
             t.layerObjs.push(obj);
             anchor.group.add(obj.mesh);
-            await primeVideoFrame(obj.video); // precalentar
+            // no priming aquí; lo hace revealInSync con prepareVideo()
           }
           t.layersCreated = true;
         };
-
-        const ensureParticles = () => {
+        const ensureParticles = ()=>{
           if (!ENABLE_PARTICLES) return;
           if (t.particles) return;
           const pcfg = particleMap[t.index];
@@ -1056,51 +616,51 @@
           t.particles.visible = false;
           anchor.group.add(p);
         };
+        const volumeFor = (audioBase)=> VOLUMES_BY_AUDIOBASE[audioBase] ?? 1.0;
 
-        const showParticles = () => {
-          if (t.particles) t.particles.visible = true;
-        };
-        const hideParticles = () => {
-          if (t.particles) t.particles.visible = false;
-        };
-
-        anchor.onTargetFound = async () => {
+        anchor.onTargetFound = async ()=>{
           activeTargets.add(t.index);
-          if (t.cleanupTimeout) {
-            clearTimeout(t.cleanupTimeout);
-            t.cleanupTimeout = null;
-          }
+          if (t.cleanupTimeout) { clearTimeout(t.cleanupTimeout); t.cleanupTimeout = null; }
 
-          ensureAudio();
+          // Precarga/decodifica audio
+          AudioMgr.load(t.audioBase).catch(()=>{});
+
+          // Capas y partículas
           await ensureLayers();
           ensureParticles();
 
-          // Arrancar videos y esperar primer frame de todas las capas
-          const waits = [];
-          t.layerObjs.forEach(({ video }) => {
-            video.play().catch(() => {});
-            waits.push(waitFirstFrame(video));
-          });
-          await Promise.all(waits);
+          // REVEAL sincronizado (espera a todos los videos)
+          await revealInSync(t);
 
-          // Mostrar partículas SOLO después de que el video ya dibujó el primer frame
-          showParticles();
-
-          // Reproducir audio si ya se desbloqueó
-          if (audioUnlocked && t.audioObj) {
-            t.audioObj.muted = false;
-            t.audioObj.play().catch(() => {});
+          // Audio (crossfade maestro)
+          if (audioUnlocked) {
+            const vol = volumeFor(t.audioBase);
+            AudioMgr.playLoop(t.audioBase, vol).then(()=>{
+              AudioMgr.masterCrossfadeTo(t.audioBase); // foco al target actual
+            }).catch(()=>{});
           }
         };
 
-        anchor.onTargetLost = () => {
+        anchor.onTargetLost = ()=>{
           activeTargets.delete(t.index);
-          t.layerObjs.forEach(({ video }) => video.pause());
-          hideParticles();
-          if (t.audioObj) t.audioObj.pause();
-          if (calidad !== "hd") {
-            t.cleanupTimeout = setTimeout(() => {
-              t.layerObjs.forEach((obj) => {
+
+          // Pausar y ocultar inmediato
+          t.layerObjs.forEach(({ video, mesh }) => {
+            try { video.pause(); } catch {}
+            if (mesh) mesh.visible = false;
+          });
+          if (t.particles) t.particles.visible = false;
+
+          // Audio con fade
+          AudioMgr.stopWithFade(t.audioBase, 600);
+
+          // Ocultar spinner si estaba esperando
+          hideSpinner();
+
+          // Limpieza perezosa
+          if (calidad!=="hd") {
+            t.cleanupTimeout = setTimeout(()=>{
+              t.layerObjs.forEach((obj)=>{
                 anchor.group.remove(obj.mesh);
                 disposeLayer(obj);
               });
@@ -1114,66 +674,69 @@
               }
             }, 5000);
           }
+
+          // Promociona foco si usas crossfade maestro
+          setTimeout(()=>{
+            if (!activeTargets.size) return;
+            let lastActiveIndex = null;
+            activeTargets.forEach(i => { lastActiveIndex = i; }); // último insertado
+            const next = targets.find(tt => tt.index === lastActiveIndex);
+            if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
+          }, 50);
         };
       });
 
-      // ====== Animación de partículas SOLO en targets activos ======
-      const animateParticles = () => {
+      // ====== Animación de partículas (solo activos) ======
+      const animateParticles = ()=>{
         if (!ENABLE_PARTICLES) return;
-        targets.forEach((t) => {
+        targets.forEach((t)=>{
           const p = t.particles;
           if (!p || !p.visible || !activeTargets.has(t.index)) return;
           const positions = p.geometry.attributes.position.array;
           const type = p.userData.type;
-          const count = positions.length / 3;
+          const count = positions.length/3;
           switch (type) {
             case "rain": {
-              const speed = p.userData.speed || 0.005;
-              const areaY = p.userData.areaY || 0.5;
-              for (let i = 0; i < count; i++) {
-                const idx = i * 3;
-                positions[idx + 1] -= speed;
-                if (positions[idx + 1] < -areaY / 2)
-                  positions[idx + 1] = areaY / 2;
+              const speed = p.userData.speed || .005;
+              const areaY = p.userData.areaY || .5;
+              for (let i=0;i<count;i++){
+                const idx = i*3;
+                positions[idx+1] -= speed;
+                if (positions[idx+1] < -areaY/2) positions[idx+1] = areaY/2;
               }
               break;
             }
             case "foam": {
-              const speed = p.userData.speed || 0.002;
-              const areaY = p.userData.areaY || 0.3;
-              for (let i = 0; i < count; i++) {
-                const idx = i * 3;
-                positions[idx + 1] += speed;
-                if (positions[idx + 1] > areaY / 2)
-                  positions[idx + 1] = -areaY / 2;
+              const speed = p.userData.speed || .002;
+              const areaY = p.userData.areaY || .3;
+              for (let i=0;i<count;i++){
+                const idx = i*3;
+                positions[idx+1] += speed;
+                if (positions[idx+1] > areaY/2) positions[idx+1] = -areaY/2;
               }
               break;
             }
             case "dragonfly": {
-              const areaX = p.userData.areaX || 1,
-                areaY = p.userData.areaY || 0.3,
-                speed = (p.userData.speed || 0.002) * 0.002;
-              for (let i = 0; i < count; i++) {
-                const idx = i * 3;
-                positions[idx] += (Math.random() - 0.5) * speed;
-                positions[idx + 1] += (Math.random() - 0.5) * speed;
-                positions[idx + 2] += (Math.random() - 0.5) * (speed * 0.5);
-                if (positions[idx] > areaX / 2) positions[idx] = areaX / 2;
-                if (positions[idx] < -areaX / 2) positions[idx] = -areaX / 2;
-                if (positions[idx + 1] > areaY / 2)
-                  positions[idx + 1] = areaY / 2;
-                if (positions[idx + 1] < -areaY / 2)
-                  positions[idx + 1] = -areaY / 2;
+              const areaX = p.userData.areaX || 1, areaY = p.userData.areaY || .3, speed=(p.userData.speed||.002)*.002;
+              for (let i=0;i<count;i++){
+                const idx = i*3;
+                positions[idx]   += (Math.random()-.5)*speed;
+                positions[idx+1] += (Math.random()-.5)*speed;
+                positions[idx+2] += (Math.random()-.5)*(speed*.5);
+                if (positions[idx] >  areaX/2) positions[idx]   =  areaX/2;
+                if (positions[idx] < -areaX/2) positions[idx]   = -areaX/2;
+                if (positions[idx+1] >  areaY/2) positions[idx+1] =  areaY/2;
+                if (positions[idx+1] < -areaY/2) positions[idx+1] = -areaY/2;
               }
               break;
             }
             case "fire": {
-              const speed = p.userData.speed || 0.003;
-              const areaY = p.userData.areaY || 0.25;
-              for (let i = 0; i < count; i++) {
-                const idx = i * 3;
-                positions[idx + 1] += speed;
-                if (positions[idx + 1] > areaY) positions[idx + 1] = 0;
+              const speed = p.userData.speed || .003;
+              const areaY = p.userData.areaY || .25;
+              for (let i=0;i<count;i++){
+                const idx = i*3;
+                positions[idx+1] += speed;
+                if (positions[idx+1] > areaY) positions[idx+1] = 0;
               }
               break;
             }
@@ -1182,90 +745,66 @@
         });
       };
 
-      // ====== Desbloqueo de AUDIO (solo una vez) ======
-      const unlockAudioOnce = () => {
-        if (audioUnlocked) return;
-        audioUnlocked = true;
-        targets.forEach((t) => {
-          if (!t.audioObj) {
-            try {
-              t.audioObj = new Audio(pickAAC(t.audioBase));
-              t.audioObj.loop = true;
-              t.audioObj.preload = "auto";
-            } catch (e) {}
-          }
-          // Desbloqueo silencioso sin pausar música más adelante
-          try {
-            t.audioObj.muted = true;
-            t.audioObj
-              .play()
-              .then(() => {
-                t.audioObj.pause();
-                t.audioObj.currentTime = 0;
-                t.audioObj.muted = false;
-              })
-              .catch(() => {});
-          } catch (e) {}
-        });
-      };
-      addEventListener("touchstart", unlockAudioOnce, {
-        once: true,
-        capture: true,
-      });
-      addEventListener("pointerdown", unlockAudioOnce, {
-        once: true,
-        capture: true,
-      });
-
-      // ====== Splash (icono) ======
+      /* ====== Desbloqueo de AUDIO (una sola vez) ====== */
       const splash = document.getElementById("splash");
-      const splashIcon = document.getElementById("splash-icon");
-      splashIcon.style.backgroundImage = `url('${SPLASH_ICON_URL}')`;
-      const showSplash = () => {
-        splash.classList.add("show");
+      const btnAudio = document.getElementById("btn-audio");
+      const unlockAudioOnce = async ()=>{
+        try { await AudioMgr.resume(); } catch {}
+        audioUnlocked = true;
+        // Si ya hay targets activos, enciende sus audios y enfoca el último
+        let lastActiveIndex = null;
+        activeTargets.forEach(i => { lastActiveIndex = i; });
+        targets.forEach((t)=>{
+          if (activeTargets.has(t.index)) {
+            const vol = VOLUMES_BY_AUDIOBASE[t.audioBase] ?? 1.0;
+            AudioMgr.playLoop(t.audioBase, vol).catch(()=>{});
+          }
+        });
+        if (lastActiveIndex !== null) {
+          const next = targets.find(tt => tt.index === lastActiveIndex);
+          if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
+        }
+        hideSplash();
       };
-      const hideSplash = () => {
+      const showSplash = ()=> splash.classList.add("show");
+      const hideSplash = ()=>{
         splash.classList.remove("show");
-        setTimeout(() => splash.remove(), 250);
+        setTimeout(()=> splash.remove(), 250);
       };
-      splash.addEventListener(
-        "pointerdown",
-        () => {
-          unlockAudioOnce();
-          hideSplash();
-        },
-        { passive: true }
-      );
-      splash.addEventListener(
-        "touchstart",
-        () => {
-          unlockAudioOnce();
-          hideSplash();
-        },
-        { passive: true }
-      );
+      btnAudio?.addEventListener("pointerdown", unlockAudioOnce, {passive:true});
+      splash.addEventListener("pointerdown", unlockAudioOnce, {passive:true});
+      // También en cualquier toque de la app (una sola vez)
+      addEventListener("touchstart", unlockAudioOnce, {once:true, capture:true});
+      addEventListener("pointerdown", unlockAudioOnce, {once:true, capture:true});
+      // Auto-ocultar splash si no hay toque (no bloquea AR)
+      setTimeout(()=> hideSplash(), SPLASH_AUTOHIDE_MS);
 
-      // ====== Inicio inmediato de cámara/AR ======
+      // Silenciar al cambiar de pestaña y ocultar spinner si estaba
+      document.addEventListener("visibilitychange", ()=>{
+        if (document.hidden) { hideSpinner(); AudioMgr.stopAll(); }
+      });
+
+      // ====== Inicio de cámara/AR ======
       const fpsBox = document.getElementById("fps");
-      const start = async () => {
+      const start = async ()=>{
         await mindarThree.start();
         showSplash();
-        setTimeout(hideSplash, SPLASH_DURATION_MS);
-        let last = performance.now();
-        let frames = 0;
-        renderer.setAnimationLoop(() => {
+        let last = performance.now(); let frames = 0;
+        renderer.setAnimationLoop(()=>{
           animateParticles();
           renderer.render(scene, camera);
           frames++;
           const now = performance.now();
-          if (now - last >= 1000) {
-            fpsBox.textContent = `${frames} fps`;
-            frames = 0;
-            last = now;
-          }
+          if (now - last >= 1000) { fpsBox.textContent = `${frames} fps`; frames = 0; last = now; }
         });
       };
       start();
+
+      /* ====== Precalentar audio buffers de los 3 primeros targets ====== */
+      [0,1,2].forEach(i=>{
+        const base = targets[i]?.audioBase;
+        if (base) AudioMgr.load(base).catch(()=>{});
+      });
     </script>
   </body>
 </html>
