@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"
     />
-    <title>WebAR – Sincronía + Crossfade Maestro + Spinner</title>
+    <title>WebAR – Sincronía + Crossfade Maestro + Spinner + Adaptive iOS</title>
 
     <!-- Librerías -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
@@ -88,7 +88,6 @@
       const SPLASH_AUTOHIDE_MS = 1000; // el splash desaparece solo
       const SPINNER_DELAY_MS = 800;    // muestra spinner si el reveal tarda más que esto
       const VOLUMES_BY_AUDIOBASE = {
-        // Ajusta volúmenes por pista si lo necesitas (1.0 = 100%)
         "Audio/PajarosSingle": 1.0,
         "Audio/SoundVideo01": 1.0,
         "Audio/Sonido_Video02": 1.0,
@@ -101,17 +100,29 @@
       };
       fixVH(); addEventListener("resize", fixVH); addEventListener("orientationchange", fixVH);
 
-      /* ====== Perfil de calidad ====== */
-      const detectarCalidad = () => {
-        const mem = navigator.deviceMemory || 2;
-        const cpu = navigator.hardwareConcurrency || 2;
-        if (mem <= 2 || cpu <= 4) return "low";
-        if (mem <= 4) return "mid";
-        return "hd";
-      };
-      const calidad = detectarCalidad();
-      const ENABLE_PARTICLES = calidad !== "low";
+      /* ====== Calidad: baseline iOS + adaptativo por FPS ====== */
+      // Detección robusta de iOS/iPadOS (incluye iPadOS como "Mac" con touch)
+      const isIOS = (() => {
+        const p = navigator.platform || "";
+        const ua = navigator.userAgent || "";
+        const touchMac = /Mac/.test(p) && navigator.maxTouchPoints > 1;
+        return /iPhone|iPad|iPod/.test(p) || touchMac || /iPhone|iPad|iPod/.test(ua);
+      })();
+
+      // Bootstrap prudente (en iOS no confíes en deviceMemory/hardwareConcurrency)
+      let calidad = bootstrapQuality();
+      function bootstrapQuality() {
+        if (isIOS) return "mid";
+        const mem = typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : 4;
+        const cpu = typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : 6;
+        if (mem >= 8 && cpu >= 8) return "hd";
+        if (mem >= 4 && cpu >= 4) return "mid";
+        return "low";
+      }
+
+      // Escalado por calidad para conteos (se recalcula con 'calidad' actual)
       const scaleByQuality = (n)=> calidad==="low"?0:calidad==="mid"?Math.round(n*0.6):n;
+      const particlesEnabled = () => calidad !== "low";
 
       /* ====== Partículas ====== */
       const createPoints = (positions, size, color) => {
@@ -219,15 +230,28 @@
       });
       const { renderer, scene, camera } = mindarThree;
 
-      // Pixel ratio adaptativo
-      const pxr = calidad==="low"?0.75:calidad==="mid"?1.0:1.25;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, pxr));
       if (renderer.outputEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
       try { renderer.getContext().getContextAttributes().powerPreference = "low-power"; } catch{}
 
-      const sharedPlane = new THREE.PlaneGeometry(0.9, 0.8);
+      // Setter central de calidad (reaplica DPR y oculta partículas si baja a "low")
+      function setQuality(next) {
+        const prev = calidad;
+        const changed = (prev !== next);
+        calidad = next;
+
+        const pxr = calidad==="low" ? 0.75 : (calidad==="mid" ? 1.0 : 1.25); // cap amigable
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pxr));
+
+        if (changed && typeof targets !== "undefined" && prev !== "low" && calidad === "low") {
+          // Si había partículas visibles, escóndelas al bajar a low
+          targets.forEach(t => { if (t.particles) t.particles.visible = false; });
+        }
+      }
+      // Aplica el baseline inicial
+      setQuality(calidad);
 
       /* ====== Solo AAC (.m4a) ====== */
+      const sharedPlane = new THREE.PlaneGeometry(0.9, 0.8);
       const pickAAC = (basePath)=> `${basePath}.m4a`;
 
       /* ====== Audio Manager con Crossfade Maestro ====== */
@@ -242,18 +266,10 @@
           this.master.connect(this.ctx.destination);
           this.unlocked = this.ctx.state === "running";
 
-          // Config del crossfade maestro
-          this.cross = {
-            enabled: true,
-            backgroundLevel: 0.18, // 0 = solo; 0.18 ≈ -15 dB; 0.3 ≈ -10 dB
-            fadeMs: 700
-          };
+          this.cross = { enabled: true, backgroundLevel: 0.18, fadeMs: 700 };
           this.focusKey = null;
         }
-        async resume() {
-          if (this.ctx.state !== "running") { await this.ctx.resume(); }
-          this.unlocked = true;
-        }
+        async resume() { if (this.ctx.state !== "running") await this.ctx.resume(); this.unlocked = true; }
         async load(basePath) {
           if (this.buffers.has(basePath)) return this.buffers.get(basePath);
           const url = pickAAC(basePath);
@@ -264,73 +280,32 @@
           this.buffers.set(basePath, buf);
           return buf;
         }
-        _rampTo(gainNode, target, ms = this.cross.fadeMs) {
-          const now = this.ctx.currentTime;
-          gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-          gainNode.gain.linearRampToValueAtTime(target, now + ms / 1000);
-        }
-        async playLoop(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
+        _rampTo(g, target, ms=this.cross.fadeMs){ const now=this.ctx.currentTime; g.gain.setValueAtTime(g.gain.value, now); g.gain.linearRampToValueAtTime(target, now+ms/1000); }
+        async playLoop(basePath, volume=1.0, fadeMs=this.cross.fadeMs){
           const buf = await this.load(basePath);
-          if (this.playing.has(basePath)) {
-            const h = this.playing.get(basePath);
-            h.baseVol = volume;
-            this._rampTo(h.gain, volume, fadeMs);
-            return h;
-          }
-          const src = this.ctx.createBufferSource();
-          src.buffer = buf;
-          src.loop = true;
-          const gain = this.ctx.createGain();
-          gain.gain.value = 0; // fade-in
-          src.connect(gain).connect(this.master);
-          src.start(0);
-          const handle = { src, gain, baseVol: volume, stopTimer: null };
-          this.playing.set(basePath, handle);
-          this._rampTo(gain, volume, fadeMs);
-          return handle;
+          if (this.playing.has(basePath)) { const h=this.playing.get(basePath); h.baseVol=volume; this._rampTo(h.gain, volume, fadeMs); return h; }
+          const src=this.ctx.createBufferSource(); src.buffer=buf; src.loop=true;
+          const gain=this.ctx.createGain(); gain.gain.value=0; src.connect(gain).connect(this.master); src.start(0);
+          const handle={src,gain,baseVol:volume,stopTimer:null}; this.playing.set(basePath, handle); this._rampTo(gain, volume, fadeMs); return handle;
         }
-        stopWithFade(basePath, fadeMs = this.cross.fadeMs) {
-          const h = this.playing.get(basePath);
-          if (!h) return;
-          if (h.stopTimer) { clearTimeout(h.stopTimer); h.stopTimer = null; }
+        stopWithFade(basePath, fadeMs=this.cross.fadeMs){
+          const h=this.playing.get(basePath); if(!h) return;
+          if (h.stopTimer){ clearTimeout(h.stopTimer); h.stopTimer=null; }
           this._rampTo(h.gain, 0, fadeMs);
-          h.stopTimer = setTimeout(() => {
-            try { h.src.stop(0); } catch {}
-            try { h.src.disconnect(); h.gain.disconnect(); } catch {}
-            this.playing.delete(basePath);
-            if (this.focusKey === basePath) this.focusKey = null;
-          }, fadeMs + 30);
+          h.stopTimer=setTimeout(()=>{ try{h.src.stop(0);}catch{} try{h.src.disconnect();h.gain.disconnect();}catch{} this.playing.delete(basePath); if(this.focusKey===basePath)this.focusKey=null; }, fadeMs+30);
         }
-        stop(basePath) {
-          const h = this.playing.get(basePath);
-          if (!h) return;
-          try { h.src.stop(0); } catch {}
-          try { h.src.disconnect(); h.gain.disconnect(); } catch {}
-          if (h.stopTimer) clearTimeout(h.stopTimer);
-          this.playing.delete(basePath);
-          if (this.focusKey === basePath) this.focusKey = null;
-        }
-        stopAllWithFade(ms = 250) {
-          for (const k of Array.from(this.playing.keys())) this.stopWithFade(k, ms);
-        }
-        stopAll() {
-          for (const k of Array.from(this.playing.keys())) this.stop(k);
-        }
-        // Crossfade maestro: sube foco y baja resto a backgroundLevel
-        masterCrossfadeTo(basePath, fadeMs = this.cross.fadeMs) {
+        stop(basePath){ const h=this.playing.get(basePath); if(!h) return; try{h.src.stop(0);}catch{} try{h.src.disconnect();h.gain.disconnect();}catch{} if(h.stopTimer)clearTimeout(h.stopTimer); this.playing.delete(basePath); if(this.focusKey===basePath)this.focusKey=null; }
+        stopAllWithFade(ms=250){ for(const k of Array.from(this.playing.keys())) this.stopWithFade(k, ms); }
+        stopAll(){ for(const k of Array.from(this.playing.keys())) this.stop(k); }
+        masterCrossfadeTo(basePath, fadeMs=this.cross.fadeMs){
           if (!this.cross.enabled) return;
           this.focusKey = basePath;
-          for (const [k, h] of this.playing.entries()) {
-            const targetVol = (k === basePath)
-              ? h.baseVol
-              : h.baseVol * this.cross.backgroundLevel;
+          for (const [k,h] of this.playing.entries()){
+            const targetVol = (k===basePath) ? h.baseVol : h.baseVol * this.cross.backgroundLevel;
             this._rampTo(h.gain, targetVol, fadeMs);
           }
         }
-        setCrossfadeConfig({ backgroundLevel, fadeMs }) {
-          if (typeof backgroundLevel === "number") this.cross.backgroundLevel = backgroundLevel;
-          if (typeof fadeMs === "number") this.cross.fadeMs = fadeMs;
-        }
+        setCrossfadeConfig({ backgroundLevel, fadeMs }){ if(typeof backgroundLevel==="number") this.cross.backgroundLevel=backgroundLevel; if(typeof fadeMs==="number") this.cross.fadeMs=fadeMs; }
       }
       const AudioMgr = new WebAudioManager();
       let audioUnlocked = AudioMgr.unlocked;
@@ -505,29 +480,22 @@
       });
 
       async function revealInSync(target) {
-        // Generational token para cancelar ciclos viejos
         target._gen = (target._gen || 0) + 1;
         const myGen = target._gen;
 
-        // Arranca temporizador del spinner
         if (spinnerTimer) { clearTimeout(spinnerTimer); }
         spinnerTimer = setTimeout(() => showSpinner(), SPINNER_DELAY_MS);
 
-        // Oculta todo antes de preparar
         target.layerObjs.forEach(({ mesh }) => mesh.visible = false);
         if (target.particles) target.particles.visible = false;
 
-        // 1) Preparar todos los videos al primer frame
         const videos = target.layerObjs.map(o => o.video);
         await Promise.all(videos.map(v => prepareVideo(v)));
 
-        // 2) Prewarm shaders/materiales
         await prewarmMaterials();
 
-        // Cancelar si cambió el estado
         if (target._gen !== myGen) { hideSpinner(); return; }
 
-        // 3) Revelar TODO al unísono
         videos.forEach(v => { try { v.currentTime = 0; } catch {} });
         await new Promise(r => requestAnimationFrame(r));
         target.layerObjs.forEach(({ mesh }) => mesh.visible = true);
@@ -601,12 +569,11 @@
             const obj = createVideoLayer(layerCfg);
             t.layerObjs.push(obj);
             anchor.group.add(obj.mesh);
-            // no priming aquí; lo hace revealInSync con prepareVideo()
           }
           t.layersCreated = true;
         };
         const ensureParticles = ()=>{
-          if (!ENABLE_PARTICLES) return;
+          if (!particlesEnabled()) return;
           if (t.particles) return;
           const pcfg = particleMap[t.index];
           if (!pcfg) return;
@@ -622,21 +589,17 @@
           activeTargets.add(t.index);
           if (t.cleanupTimeout) { clearTimeout(t.cleanupTimeout); t.cleanupTimeout = null; }
 
-          // Precarga/decodifica audio
           AudioMgr.load(t.audioBase).catch(()=>{});
 
-          // Capas y partículas
           await ensureLayers();
           ensureParticles();
 
-          // REVEAL sincronizado (espera a todos los videos)
           await revealInSync(t);
 
-          // Audio (crossfade maestro)
           if (audioUnlocked) {
             const vol = volumeFor(t.audioBase);
             AudioMgr.playLoop(t.audioBase, vol).then(()=>{
-              AudioMgr.masterCrossfadeTo(t.audioBase); // foco al target actual
+              AudioMgr.masterCrossfadeTo(t.audioBase);
             }).catch(()=>{});
           }
         };
@@ -644,20 +607,15 @@
         anchor.onTargetLost = ()=>{
           activeTargets.delete(t.index);
 
-          // Pausar y ocultar inmediato
           t.layerObjs.forEach(({ video, mesh }) => {
             try { video.pause(); } catch {}
             if (mesh) mesh.visible = false;
           });
           if (t.particles) t.particles.visible = false;
 
-          // Audio con fade
           AudioMgr.stopWithFade(t.audioBase, 600);
-
-          // Ocultar spinner si estaba esperando
           hideSpinner();
 
-          // Limpieza perezosa
           if (calidad!=="hd") {
             t.cleanupTimeout = setTimeout(()=>{
               t.layerObjs.forEach((obj)=>{
@@ -675,11 +633,10 @@
             }, 5000);
           }
 
-          // Promociona foco si usas crossfade maestro
           setTimeout(()=>{
             if (!activeTargets.size) return;
             let lastActiveIndex = null;
-            activeTargets.forEach(i => { lastActiveIndex = i; }); // último insertado
+            activeTargets.forEach(i => { lastActiveIndex = i; });
             const next = targets.find(tt => tt.index === lastActiveIndex);
             if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
           }, 50);
@@ -688,7 +645,7 @@
 
       // ====== Animación de partículas (solo activos) ======
       const animateParticles = ()=>{
-        if (!ENABLE_PARTICLES) return;
+        if (!particlesEnabled()) return;
         targets.forEach((t)=>{
           const p = t.particles;
           if (!p || !p.visible || !activeTargets.has(t.index)) return;
@@ -751,7 +708,6 @@
       const unlockAudioOnce = async ()=>{
         try { await AudioMgr.resume(); } catch {}
         audioUnlocked = true;
-        // Si ya hay targets activos, enciende sus audios y enfoca el último
         let lastActiveIndex = null;
         activeTargets.forEach(i => { lastActiveIndex = i; });
         targets.forEach((t)=>{
@@ -773,22 +729,58 @@
       };
       btnAudio?.addEventListener("pointerdown", unlockAudioOnce, {passive:true});
       splash.addEventListener("pointerdown", unlockAudioOnce, {passive:true});
-      // También en cualquier toque de la app (una sola vez)
       addEventListener("touchstart", unlockAudioOnce, {once:true, capture:true});
       addEventListener("pointerdown", unlockAudioOnce, {once:true, capture:true});
-      // Auto-ocultar splash si no hay toque (no bloquea AR)
       setTimeout(()=> hideSplash(), SPLASH_AUTOHIDE_MS);
 
-      // Silenciar al cambiar de pestaña y ocultar spinner si estaba
       document.addEventListener("visibilitychange", ()=>{
         if (document.hidden) { hideSpinner(); AudioMgr.stopAll(); }
       });
+
+      // ====== Adaptive Scaler por FPS (ventanas de 1.5s con histéresis) ======
+      function startAdaptiveScaler() {
+        let windowMs = 1500;
+        let frames = 0;
+        let t0 = performance.now();
+        let stableCount = 0;
+
+        const evalAndMaybeScale = (fps) => {
+          let target = calidad;
+          if (fps > 28 && calidad !== "hd") target = "hd";
+          else if (fps < 22 && calidad !== "low") target = "low";
+          else if (fps >= 22 && fps <= 28 && calidad !== "mid") target = "mid";
+
+          if (target !== calidad) {
+            stableCount++;
+            if (stableCount >= 2) { // exige 2 ventanas seguidas
+              setQuality(target);
+              stableCount = 0;
+            }
+          } else {
+            stableCount = 0;
+          }
+        };
+
+        const tick = () => {
+          frames++;
+          const now = performance.now();
+          if (now - t0 >= windowMs) {
+            const fps = (frames * 1000) / (now - t0);
+            evalAndMaybeScale(fps);
+            frames = 0; t0 = now;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
 
       // ====== Inicio de cámara/AR ======
       const fpsBox = document.getElementById("fps");
       const start = async ()=>{
         await mindarThree.start();
         showSplash();
+        startAdaptiveScaler(); // <--- activa el ajuste dinámico por FPS
+
         let last = performance.now(); let frames = 0;
         renderer.setAnimationLoop(()=>{
           animateParticles();
