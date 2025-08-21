@@ -399,16 +399,25 @@
           if (this.ctx.state !== "running") await this.ctx.resume();
           this.unlocked = true;
         }
+
         async load(basePath) {
           if (this.buffers.has(basePath)) return this.buffers.get(basePath);
-          const url = pickAAC(basePath);
-          const res = await fetch(url);
-          if (!res.ok)
-            throw new Error(`Audio no encontrado: ${url} (${res.status})`);
-          const arr = await res.arrayBuffer();
-          const buf = await this.ctx.decodeAudioData(arr);
-          this.buffers.set(basePath, buf);
-          return buf;
+          const urls = [`${basePath}.m4a`, `${basePath}.mp3`];
+          let lastErr;
+          for (const url of urls) {
+            try {
+              const res = await fetch(url);
+              if (!res.ok)
+                throw new Error(`Audio no encontrado: ${url} (${res.status})`);
+              const arr = await res.arrayBuffer();
+              const buf = await this.ctx.decodeAudioData(arr);
+              this.buffers.set(basePath, buf);
+              return buf;
+            } catch (e) {
+              lastErr = e;
+            }
+          }
+          throw lastErr;
         }
         _rampTo(g, target, ms = this.cross.fadeMs) {
           const now = this.ctx.currentTime;
@@ -1435,83 +1444,89 @@
         });
       };
 
-      // ====== Desbloqueo de AUDIO (una sola vez) ======
+      /* ====== Desbloqueo de AUDIO (una sola vez) ====== */
       const splash = document.getElementById("splash");
-
-      const unlockAudioOnce = async () => {
+      const btnAudio = document.getElementById("btn-audio");
+      // Dispara un tono diminuto (inaudible ~-50 dB) durante ~40ms para “despertar” el audio en iOS/Android
+      function pingAudioOnce() {
         try {
-          await AudioMgr.resume();
+          const ctx = AudioMgr.ctx;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.003, ctx.currentTime);
+          g.gain.linearRampToValueAtTime(0.0, ctx.currentTime + 0.04);
+          osc.frequency.value = 440;
+          osc.connect(g).connect(AudioMgr.master);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.05);
         } catch {}
+      }
 
-        // Ping inaudible de 30ms para “despertar” el output en iOS
+      const unlockAudioOnce = () => {
         try {
-          const o = AudioMgr.ctx.createOscillator();
-          const g = AudioMgr.ctx.createGain();
-          g.gain.value = 0.0001; // casi 0
-          o.connect(g).connect(AudioMgr.master);
-          o.start();
-          o.stop(AudioMgr.ctx.currentTime + 0.03);
+          AudioMgr.resume();
         } catch {}
+        // El “ping” debe ocurrir dentro del mismo callback del gesto
+        pingAudioOnce();
 
         audioUnlocked = true;
 
-        // Enganche robusto del primer gesto (solo una vez)
-        (() => {
-          const handler = () => {
-            // limpia para evitar múltiples llamadas
-            window.removeEventListener("pointerdown", handler, true);
-            window.removeEventListener("touchstart", handler, true);
-            window.removeEventListener("click", handler, true);
-            document.removeEventListener("keydown", keyHandler, true);
-            unlockAudioOnce();
-          };
-          const keyHandler = (e) => {
-            if (e.code === "Space" || e.code === "Enter") handler();
-          };
-
-          splash?.addEventListener("pointerdown", handler, {
-            passive: true,
-            once: true,
-          });
-          window.addEventListener("pointerdown", handler, {
-            capture: true,
-            once: true,
-            passive: true,
-          });
-          window.addEventListener("touchstart", handler, {
-            capture: true,
-            once: true,
-            passive: true,
-          });
-          window.addEventListener("click", handler, {
-            capture: true,
-            once: true,
-            passive: true,
-          });
-          document.addEventListener("keydown", keyHandler, {
-            capture: true,
-            once: true,
-          });
-        })();
-
-        // Si ya hay targets activos, arranca sus loops de inmediato
+        // Si ya hay targets activos, arranca sus loops y hace crossfade
         let lastActiveIndex = null;
-        activeTargets.forEach((i) => (lastActiveIndex = i));
-        for (const t of targets) {
+        activeTargets.forEach((i) => {
+          lastActiveIndex = i;
+        });
+        targets.forEach((t) => {
           if (activeTargets.has(t.index)) {
             const vol = VOLUMES_BY_AUDIOBASE[t.audioBase] ?? 1.0;
-            try {
-              await AudioMgr.playLoop(t.audioBase, vol);
-            } catch {}
+            // Importante: no “await” aquí para mantener el stack del gesto
+            AudioMgr.playLoop(t.audioBase, vol).catch(() => {});
           }
-        }
+        });
         if (lastActiveIndex !== null) {
           const next = targets.find((tt) => tt.index === lastActiveIndex);
           if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
         }
 
-        hideSplash?.();
+        hideSplash();
       };
+
+      // Enganche robusto del primer gesto para desbloquear audio (iOS/Android/Desktop)
+      (() => {
+        let armed = true;
+        const handler = () => {
+          if (!armed) return;
+          armed = false;
+          window.removeEventListener("pointerdown", handler, true);
+          window.removeEventListener("touchstart", handler, true);
+          window.removeEventListener("click", handler, true);
+          document.removeEventListener("keydown", keyHandler, true);
+          unlockAudioOnce();
+        };
+        const keyHandler = (e) => {
+          if (e.code === "Space" || e.code === "Enter") handler();
+        };
+        // Capturamos en fase de captura para ganar a otros listeners
+        window.addEventListener("pointerdown", handler, {
+          capture: true,
+          once: true,
+          passive: true,
+        });
+        window.addEventListener("touchstart", handler, {
+          capture: true,
+          once: true,
+          passive: true,
+        });
+        window.addEventListener("click", handler, {
+          capture: true,
+          once: true,
+          passive: true,
+        });
+        document.addEventListener("keydown", keyHandler, {
+          capture: true,
+          once: true,
+        });
+      })();
 
       let splashHideTimer;
       const showSplash = () => {
@@ -1529,6 +1544,24 @@
         if (document.hidden) {
           hideSpinner();
           AudioMgr.stopAll();
+        } else {
+          // Al volver al foreground, si ya está desbloqueado y hay targets activos, relanza los loops
+          if (audioUnlocked && activeTargets.size) {
+            let lastActiveIndex = null;
+            activeTargets.forEach((i) => {
+              lastActiveIndex = i;
+            });
+            targets.forEach((t) => {
+              if (activeTargets.has(t.index)) {
+                const vol = VOLUMES_BY_AUDIOBASE[t.audioBase] ?? 1.0;
+                AudioMgr.playLoop(t.audioBase, vol).catch(() => {});
+              }
+            });
+            if (lastActiveIndex !== null) {
+              const next = targets.find((tt) => tt.index === lastActiveIndex);
+              if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
+            }
+          }
         }
       });
 
