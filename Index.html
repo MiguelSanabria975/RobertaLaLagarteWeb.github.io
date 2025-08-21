@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-three.prod.js"></script>
 
+    <link rel="preload" href="Img/IconSound.png" as="image" />
+
     <style>
       :root {
         --vh: 1vh;
@@ -46,44 +48,48 @@
         z-index: 5;
       }
 
-      /* Splash minimal (se auto-oculta) */
+      /* Splash minimal sólo con icono */
       #splash {
         position: fixed;
         inset: 0;
         z-index: 20;
         display: grid;
         place-items: center;
-        background: rgba(0, 0, 0, 0.5);
+        background: transparent; /* ← comenta esta línea si quieres el oscurecido original */
         opacity: 0;
-        pointer-events: none;
+        pointer-events: auto;
         transition: opacity 220ms ease;
         -webkit-tap-highlight-color: transparent;
       }
       #splash.show {
         opacity: 1;
-        pointer-events: auto;
       }
-      #splash .card {
-        display: grid;
-        gap: 0.75rem;
-        place-items: center;
-        padding: 1rem 1.25rem;
-        border-radius: 16px;
-        background: rgba(10, 10, 12, 0.65);
-        color: #e8f1ff;
-        text-align: center;
-        font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
-          Arial;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-      }
-      #splash .btn {
+
+      #touch-hint {
+        width: clamp(72px, 22vw, 140px);
+        max-width: 45dvw;
+        image-rendering: -webkit-optimize-contrast;
+        -webkit-user-drag: none;
         user-select: none;
-        cursor: pointer;
-        padding: 0.6rem 1rem;
-        border-radius: 999px;
-        background: #4da3ff;
-        color: #fff;
-        font-weight: 600;
+        filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.35));
+        animation: popfade 1.6s ease both; /* dura ~1.6s visible */
+      }
+
+      @keyframes popfade {
+        0% {
+          opacity: 0;
+          transform: scale(0.92);
+        }
+        12% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        80% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
       }
 
       /* Spinner ultraligero (solo si el reveal tarda) */
@@ -118,12 +124,13 @@
     <div id="ar-container"></div>
     <div id="fps" aria-hidden="true"></div>
 
-    <!-- Splash informativo: se auto-oculta, pero cualquier toque desbloquea audio -->
+    <!-- Splash informativo: icono que se auto-oculta; cualquier toque desbloquea audio -->
     <div id="splash" aria-hidden="false">
-      <div class="card">
-        <div>Para activar sonido, toca una vez la pantalla.</div>
-        <div class="btn" id="btn-audio">Activar audio</div>
-      </div>
+      <img
+        id="touch-hint"
+        src="Img/IconSound.png"
+        alt="Toca para activar audio"
+      />
     </div>
 
     <!-- Spinner ultraligero (se muestra sólo si el reveal tarda) -->
@@ -133,7 +140,7 @@
 
     <script type="module">
       /* ================= CONFIG ================= */
-      const SPLASH_AUTOHIDE_MS = 1000; // el splash desaparece solo
+      const SPLASH_AUTOHIDE_MS = 1500; // el splash desaparece solo
       const SPINNER_DELAY_MS = 800; // muestra spinner si el reveal tarda más que esto
       const VOLUMES_BY_AUDIOBASE = {
         "Audio/PajarosSingle": 1.0,
