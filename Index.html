@@ -1435,29 +1435,82 @@
         });
       };
 
-      /* ====== Desbloqueo de AUDIO (una sola vez) ====== */
+      // ====== Desbloqueo de AUDIO (una sola vez) ======
       const splash = document.getElementById("splash");
-      const btnAudio = document.getElementById("btn-audio");
+
       const unlockAudioOnce = async () => {
         try {
           await AudioMgr.resume();
         } catch {}
+
+        // Ping inaudible de 30ms para “despertar” el output en iOS
+        try {
+          const o = AudioMgr.ctx.createOscillator();
+          const g = AudioMgr.ctx.createGain();
+          g.gain.value = 0.0001; // casi 0
+          o.connect(g).connect(AudioMgr.master);
+          o.start();
+          o.stop(AudioMgr.ctx.currentTime + 0.03);
+        } catch {}
+
         audioUnlocked = true;
+
+        // Enganche robusto del primer gesto (solo una vez)
+        (() => {
+          const handler = () => {
+            // limpia para evitar múltiples llamadas
+            window.removeEventListener("pointerdown", handler, true);
+            window.removeEventListener("touchstart", handler, true);
+            window.removeEventListener("click", handler, true);
+            document.removeEventListener("keydown", keyHandler, true);
+            unlockAudioOnce();
+          };
+          const keyHandler = (e) => {
+            if (e.code === "Space" || e.code === "Enter") handler();
+          };
+
+          splash?.addEventListener("pointerdown", handler, {
+            passive: true,
+            once: true,
+          });
+          window.addEventListener("pointerdown", handler, {
+            capture: true,
+            once: true,
+            passive: true,
+          });
+          window.addEventListener("touchstart", handler, {
+            capture: true,
+            once: true,
+            passive: true,
+          });
+          window.addEventListener("click", handler, {
+            capture: true,
+            once: true,
+            passive: true,
+          });
+          document.addEventListener("keydown", keyHandler, {
+            capture: true,
+            once: true,
+          });
+        })();
+
+        // Si ya hay targets activos, arranca sus loops de inmediato
         let lastActiveIndex = null;
-        activeTargets.forEach((i) => {
-          lastActiveIndex = i;
-        });
-        targets.forEach((t) => {
+        activeTargets.forEach((i) => (lastActiveIndex = i));
+        for (const t of targets) {
           if (activeTargets.has(t.index)) {
             const vol = VOLUMES_BY_AUDIOBASE[t.audioBase] ?? 1.0;
-            AudioMgr.playLoop(t.audioBase, vol).catch(() => {});
+            try {
+              await AudioMgr.playLoop(t.audioBase, vol);
+            } catch {}
           }
-        });
+        }
         if (lastActiveIndex !== null) {
           const next = targets.find((tt) => tt.index === lastActiveIndex);
           if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
         }
-        hideSplash();
+
+        hideSplash?.();
       };
 
       let splashHideTimer;
