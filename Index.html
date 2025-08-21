@@ -140,7 +140,7 @@
 
     <script type="module">
       /* ================= CONFIG ================= */
-      const SPLASH_AUTOHIDE_MS = 1500; // el splash desaparece solo
+      const SPLASH_AUTOHIDE_MS = 100000; // el splash desaparece solo
       const SPINNER_DELAY_MS = 800; // muestra spinner si el reveal tarda más que esto
       const VOLUMES_BY_AUDIOBASE = {
         "Audio/PajarosSingle": 1.0,
@@ -339,7 +339,7 @@
       /* ====== MindAR ====== */
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: document.querySelector("#ar-container"),
-        imageTargetSrc: "TargetsMind/targets.mind",
+        imageTargetSrc: "TargetsMind/MultiTarget.mind",
         filterMinCF: 0.05,
         filterBeta: 0.01,
       });
@@ -838,7 +838,7 @@
             {
               src: "Animations/Video27.mp4",
               z: 0,
-              scale: 1.2,
+              scale: 1.5,
               chroma: "0x0f00da",
             },
           ],
@@ -1459,26 +1459,18 @@
         }
         hideSplash();
       };
-      const showSplash = () => splash.classList.add("show");
+
+      let splashHideTimer;
+      const showSplash = () => {
+        splash.classList.add("show");
+        clearTimeout(splashHideTimer);
+        splashHideTimer = setTimeout(() => hideSplash(), SPLASH_AUTOHIDE_MS);
+      };
       const hideSplash = () => {
         splash.classList.remove("show");
-        setTimeout(() => splash.remove(), 250);
+        // Si ya fue removido, esto no rompe nada:
+        setTimeout(() => splash.remove?.(), 250);
       };
-      btnAudio?.addEventListener("pointerdown", unlockAudioOnce, {
-        passive: true,
-      });
-      splash.addEventListener("pointerdown", unlockAudioOnce, {
-        passive: true,
-      });
-      addEventListener("touchstart", unlockAudioOnce, {
-        once: true,
-        capture: true,
-      });
-      addEventListener("pointerdown", unlockAudioOnce, {
-        once: true,
-        capture: true,
-      });
-      setTimeout(() => hideSplash(), SPLASH_AUTOHIDE_MS);
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
@@ -1529,6 +1521,7 @@
       // ====== Inicio de cámara/AR ======
       const fpsBox = document.getElementById("fps");
       const start = async () => {
+        showSplash();
         await mindarThree.start();
         showSplash();
         startAdaptiveScaler(); // <--- activa el ajuste dinámico por FPS
