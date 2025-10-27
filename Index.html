@@ -29,7 +29,6 @@
         -webkit-user-select: none;
         user-select: none;
       }
-
       #ar-container {
         position: fixed;
         inset: 0;
@@ -48,14 +47,14 @@
         z-index: 5;
       }
 
-      /* Splash minimal sólo con icono */
+      /* Splash minimal (icono toque) */
       #splash {
         position: fixed;
         inset: 0;
         z-index: 20;
         display: grid;
         place-items: center;
-        background: transparent; /* ← comenta esta línea si quieres el oscurecido original */
+        background: transparent;
         opacity: 0;
         pointer-events: auto;
         transition: opacity 220ms ease;
@@ -64,7 +63,6 @@
       #splash.show {
         opacity: 1;
       }
-
       #touch-hint {
         width: clamp(72px, 22vw, 140px);
         max-width: 45dvw;
@@ -72,9 +70,8 @@
         -webkit-user-drag: none;
         user-select: none;
         filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.35));
-        animation: popfade 1.6s ease both; /* dura ~1.6s visible */
+        animation: popfade 1.6s ease both;
       }
-
       @keyframes popfade {
         0% {
           opacity: 0;
@@ -92,14 +89,14 @@
         }
       }
 
-      /* Spinner ultraligero (solo si el reveal tarda) */
+      /* Spinner */
       #spinner {
         position: fixed;
         inset: 0;
         display: grid;
         place-items: center;
         z-index: 30;
-        pointer-events: none; /* no bloquea toques */
+        pointer-events: none;
       }
       #spinner[hidden] {
         display: none;
@@ -111,7 +108,6 @@
         border-top-color: #4da3ff;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
-        box-shadow: 0 0 0 1px transparent;
       }
       @keyframes spin {
         to {
@@ -124,7 +120,6 @@
     <div id="ar-container"></div>
     <div id="fps" aria-hidden="true"></div>
 
-    <!-- Splash informativo: icono que se auto-oculta; cualquier toque desbloquea audio -->
     <div id="splash" aria-hidden="false">
       <img
         id="touch-hint"
@@ -133,19 +128,21 @@
       />
     </div>
 
-    <!-- Spinner ultraligero (se muestra sólo si el reveal tarda) -->
     <div id="spinner" hidden aria-hidden="true">
       <div class="ring" role="status" aria-label="Cargando"></div>
     </div>
 
     <script type="module">
       /* ================= CONFIG ================= */
-      const SPLASH_AUTOHIDE_MS = 100000; // el splash desaparece solo
-      const SPINNER_DELAY_MS = 800; // muestra spinner si el reveal tarda más que esto
+      const SPLASH_AUTOHIDE_MS = 100000;
+      const SPINNER_DELAY_MS = 800;
+
+      // Puedes ajustar volúmenes individuales por clave (opcional).
+      // Si no hay entrada, usa 1.0 por defecto.
       const VOLUMES_BY_AUDIOBASE = {
-        "Audio/PajarosSingle": 1.0,
-        "Audio/SoundVideo01": 1.0,
-        "Audio/Sonido_Video02": 1.0,
+        // Ejemplos:
+        // "Audio/Ambiente_General": 0.6,
+        // "Audio/VozOff_01": 1.0,
       };
 
       /* ====== FIX 100vh iOS ====== */
@@ -158,7 +155,6 @@
       addEventListener("orientationchange", fixVH);
 
       /* ====== Calidad: baseline iOS + adaptativo por FPS ====== */
-      // Detección robusta de iOS/iPadOS (incluye iPadOS como "Mac" con touch)
       const isIOS = (() => {
         const p = navigator.platform || "";
         const ua = navigator.userAgent || "";
@@ -167,8 +163,6 @@
           /iPhone|iPad|iPod/.test(p) || touchMac || /iPhone|iPad|iPod/.test(ua)
         );
       })();
-
-      // Bootstrap prudente (en iOS no confíes en deviceMemory/hardwareConcurrency)
       let calidad = bootstrapQuality();
       function bootstrapQuality() {
         if (isIOS) return "mid";
@@ -184,8 +178,6 @@
         if (mem >= 4 && cpu >= 4) return "mid";
         return "low";
       }
-
-      // Escalado por calidad para conteos (se recalcula con 'calidad' actual)
       const scaleByQuality = (n) =>
         calidad === "low" ? 0 : calidad === "mid" ? Math.round(n * 0.6) : n;
       const particlesEnabled = () => calidad !== "low";
@@ -301,7 +293,7 @@
         },
       };
 
-      /* ====== Shader de croma (precision Android) ====== */
+      /* ====== Shader de croma ====== */
       const makeChromaMaterial = (texture, key = 0x0f00da) => {
         const col = new THREE.Color(key);
         return new THREE.ShaderMaterial({
@@ -352,13 +344,13 @@
           "low-power";
       } catch {}
 
-      // Setter central de calidad (reaplica DPR y oculta partículas si baja a "low")
+      // Setter de calidad
       function setQuality(next) {
         const prev = calidad;
         const changed = prev !== next;
         calidad = next;
 
-        const pxr = calidad === "low" ? 0.75 : calidad === "mid" ? 1.0 : 1.25; // cap amigable
+        const pxr = calidad === "low" ? 0.75 : calidad === "mid" ? 1.0 : 1.25;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pxr));
 
         if (
@@ -367,31 +359,24 @@
           prev !== "low" &&
           calidad === "low"
         ) {
-          // Si había partículas visibles, escóndelas al bajar a low
           targets.forEach((t) => {
             if (t.particles) t.particles.visible = false;
           });
         }
       }
-      // Aplica el baseline inicial
       setQuality(calidad);
 
-      /* ====== Solo AAC (.m4a) ====== */
-      const sharedPlane = new THREE.PlaneGeometry(0.9, 0.8);
-      const pickAAC = (basePath) => `${basePath}.m4a`;
-
-      /* ====== Audio Manager con Crossfade Maestro ====== */
+      /* ====== Audio Manager ====== */
       class WebAudioManager {
         constructor() {
           const Ctx = window.AudioContext || window.webkitAudioContext;
           this.ctx = new Ctx();
           this.buffers = new Map(); // key -> AudioBuffer
-          this.playing = new Map(); // key -> { src, gain, baseVol, stopTimer? }
+          this.playing = new Map(); // key -> { src, gain, baseVol, loop, stopTimer? }
           this.master = this.ctx.createGain();
           this.master.gain.value = 1;
           this.master.connect(this.ctx.destination);
           this.unlocked = this.ctx.state === "running";
-
           this.cross = { enabled: true, backgroundLevel: 0.18, fadeMs: 700 };
           this.focusKey = null;
         }
@@ -399,7 +384,6 @@
           if (this.ctx.state !== "running") await this.ctx.resume();
           this.unlocked = true;
         }
-
         async load(basePath) {
           if (this.buffers.has(basePath)) return this.buffers.get(basePath);
           const urls = [`${basePath}.m4a`, `${basePath}.mp3`];
@@ -424,25 +408,46 @@
           g.gain.setValueAtTime(g.gain.value, now);
           g.gain.linearRampToValueAtTime(target, now + ms / 1000);
         }
-        async playLoop(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
+        async _ensureHandle(
+          basePath,
+          { loop = false, volume = 1.0, fadeMs = this.cross.fadeMs } = {}
+        ) {
           const buf = await this.load(basePath);
+          const src = this.ctx.createBufferSource();
+          src.buffer = buf;
+          src.loop = loop;
+          const gain = this.ctx.createGain();
+          gain.gain.value = 0;
+          src.connect(gain).connect(this.master);
+          src.start(0);
+          const handle = { src, gain, baseVol: volume, loop, stopTimer: null };
+          this.playing.set(basePath, handle);
+          this._rampTo(gain, volume, fadeMs);
+          if (!loop) {
+            src.onended = () => {
+              try {
+                src.disconnect();
+                gain.disconnect();
+              } catch {}
+              this.playing.delete(basePath);
+              if (this.focusKey === basePath) this.focusKey = null;
+            };
+          }
+          return handle;
+        }
+        async playLoop(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
           if (this.playing.has(basePath)) {
             const h = this.playing.get(basePath);
             h.baseVol = volume;
             this._rampTo(h.gain, volume, fadeMs);
             return h;
           }
-          const src = this.ctx.createBufferSource();
-          src.buffer = buf;
-          src.loop = true;
-          const gain = this.ctx.createGain();
-          gain.gain.value = 0;
-          src.connect(gain).connect(this.master);
-          src.start(0);
-          const handle = { src, gain, baseVol: volume, stopTimer: null };
-          this.playing.set(basePath, handle);
-          this._rampTo(gain, volume, fadeMs);
-          return handle;
+          return this._ensureHandle(basePath, { loop: true, volume, fadeMs });
+        }
+        async playOneShot(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
+          // Si ya hay uno previo (raro), lo detenemos y lanzamos el nuevo
+          if (this.playing.has(basePath)) this.stopWithFade(basePath, 80);
+          return this._ensureHandle(basePath, { loop: false, volume, fadeMs });
         }
         stopWithFade(basePath, fadeMs = this.cross.fadeMs) {
           const h = this.playing.get(basePath);
@@ -505,11 +510,17 @@
       const AudioMgr = new WebAudioManager();
       let audioUnlocked = AudioMgr.unlocked;
 
-      /* ====== Definición de targets ====== */
+      /* ====== Definición de targets ======
+         Cada target ahora tiene:
+         - audioBase   (voz en off, una sola vez)
+         - ambientBase (ambiente, loop)
+      */
+      const AMBIENT_DEFAULT = "Audio/Ambiente_General";
       const targets = [
         {
           index: 0,
           audioBase: "Audio/VozOff_01",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video00_ConFondo.mp4",
@@ -529,6 +540,7 @@
         {
           index: 1,
           audioBase: "Audio/VozOff_02",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video01_FondoConFondo.mp4",
@@ -544,6 +556,7 @@
         {
           index: 2,
           audioBase: "Audio/VozOff_03",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video02.mp4",
@@ -557,6 +570,7 @@
         {
           index: 3,
           audioBase: "Audio/VozOff_04",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video03_Mitad.mp4",
@@ -575,6 +589,7 @@
         {
           index: 4,
           audioBase: "Audio/VozOff_05",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video04.mp4",
@@ -587,6 +602,7 @@
         {
           index: 5,
           audioBase: "Audio/VozOff_06",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video05_ConFondo.mp4",
@@ -600,6 +616,7 @@
         {
           index: 6,
           audioBase: "Audio/VozOff_07",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video06_Fondo.mp4",
@@ -620,6 +637,7 @@
         {
           index: 7,
           audioBase: "Audio/VozOff_09",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             { src: "Animations/Video07.mp4", z: 0.2, chroma: "0x0f00da" },
           ],
@@ -627,6 +645,7 @@
         {
           index: 8,
           audioBase: "Audio/VozOff_10",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video08.mp4",
@@ -639,6 +658,7 @@
         {
           index: 9,
           audioBase: "Audio/VozOff_11",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video09.mp4",
@@ -652,6 +672,7 @@
         {
           index: 10,
           audioBase: "Audio/VozOff_12",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video10.mp4",
@@ -666,6 +687,7 @@
         {
           index: 11,
           audioBase: "Audio/VozOff_13",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video11.mp4",
@@ -678,6 +700,7 @@
         {
           index: 12,
           audioBase: "Audio/VozOff_14",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             { src: "Animations/Video12.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
@@ -685,13 +708,15 @@
         {
           index: 13,
           audioBase: "Audio/VozOff_15",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             { src: "Animations/Video13.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
         },
         {
           index: 14,
-          audioBase: "Audio/Sonido_Video16",
+          audioBase: "Audio/VozOff_16",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video14.mp4",
@@ -705,6 +730,7 @@
         {
           index: 15,
           audioBase: "Audio/VozOff_16",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video15.mp4",
@@ -718,7 +744,8 @@
         },
         {
           index: 16,
-          audioBase: "Audio/Sonido_Video16",
+          audioBase: "Audio/VozOff_16",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video16.mp4",
@@ -731,6 +758,7 @@
         {
           index: 17,
           audioBase: "Audio/VozOff_17",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video17.mp4",
@@ -743,6 +771,7 @@
         {
           index: 18,
           audioBase: "Audio/VozOff_18",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video18.mp4",
@@ -755,6 +784,7 @@
         {
           index: 19,
           audioBase: "Audio/VozOff_19",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             { src: "Animations/Video19.mp4", y: -0.08, chroma: "0x0f00da" },
           ],
@@ -762,6 +792,7 @@
         {
           index: 20,
           audioBase: "Audio/VozOff_20",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video20Fondo.mp4",
@@ -782,6 +813,7 @@
         {
           index: 21,
           audioBase: "Audio/VozOff_21",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video21.mp4",
@@ -796,6 +828,7 @@
         {
           index: 22,
           audioBase: "Audio/VozOff_22",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video22.mp4",
@@ -809,6 +842,7 @@
         {
           index: 23,
           audioBase: "Audio/VozOff_23",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video23.mp4",
@@ -821,6 +855,7 @@
         {
           index: 24,
           audioBase: "Audio/VozOff_24",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video24.mp4",
@@ -833,6 +868,7 @@
         {
           index: 25,
           audioBase: "Audio/VozOff_25",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video25.mp4",
@@ -846,6 +882,7 @@
         {
           index: 26,
           audioBase: "Audio/VozOff_26",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video26.mp4",
@@ -858,6 +895,7 @@
         {
           index: 27,
           audioBase: "Audio/VozOff_27",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video27.mp4",
@@ -872,6 +910,7 @@
         {
           index: 28,
           audioBase: "Audio/VozOff_28",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video28.mp4",
@@ -884,6 +923,7 @@
         {
           index: 29,
           audioBase: "Audio/VozOff_29",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video29.mp4",
@@ -898,6 +938,7 @@
         {
           index: 30,
           audioBase: "Audio/VozOff_30",
+          ambientBase: AMBIENT_DEFAULT,
           layers: [
             {
               src: "Animations/Video30.mp4",
@@ -911,7 +952,7 @@
         },
       ];
 
-      // Partículas por target
+      // Partículas por target (igual que antes)
       const particleMap = {
         0: {
           type: "foam",
@@ -1181,7 +1222,6 @@
           }
           setTimeout(finish, maxWaitMs);
         });
-
       const prepareVideo = async (video) => {
         try {
           video.muted = true;
@@ -1199,7 +1239,6 @@
         } catch {}
         await waitVideoFirstFrame(video);
       };
-
       const prewarmMaterials = () =>
         new Promise((res) => {
           requestAnimationFrame(() => res());
@@ -1208,10 +1247,7 @@
       async function revealInSync(target) {
         target._gen = (target._gen || 0) + 1;
         const myGen = target._gen;
-
-        if (spinnerTimer) {
-          clearTimeout(spinnerTimer);
-        }
+        if (spinnerTimer) clearTimeout(spinnerTimer);
         spinnerTimer = setTimeout(() => showSpinner(), SPINNER_DELAY_MS);
 
         target.layerObjs.forEach(({ mesh }) => (mesh.visible = false));
@@ -1219,7 +1255,6 @@
 
         const videos = target.layerObjs.map((o) => o.video);
         await Promise.all(videos.map((v) => prepareVideo(v)));
-
         await prewarmMaterials();
 
         if (target._gen !== myGen) {
@@ -1241,6 +1276,7 @@
       }
 
       /* ====== Crear capa de video ====== */
+      const sharedPlane = new THREE.PlaneGeometry(0.9, 0.8);
       const createVideoLayer = (layerCfg) => {
         const { src, z = 0, x = 0, y = 0, scale = 1, chroma } = layerCfg;
         const video = document.createElement("video");
@@ -1264,7 +1300,7 @@
         });
 
         const geom = sharedPlane.clone();
-        const uv = geom.attributes.uv.array; // leve recorte de bordes
+        const uv = geom.attributes.uv.array;
         uv[0] = 0.01;
         uv[2] = 0.99;
         uv[4] = 0.01;
@@ -1279,7 +1315,7 @@
         const mesh = new THREE.Mesh(geom, material);
         mesh.position.set(x, y, z);
         mesh.scale.set(scale, scale, 1);
-        mesh.visible = false; // el reveal es orquestado en bloque
+        mesh.visible = false;
         return { video, texture, mesh };
       };
 
@@ -1288,9 +1324,7 @@
         try {
           layer.video.pause();
         } catch {}
-        if (layer.texture) {
-          layer.texture.dispose();
-        }
+        if (layer.texture) layer.texture.dispose();
         if (layer.mesh) {
           if (layer.mesh.material?.map?.dispose)
             layer.mesh.material.map.dispose();
@@ -1337,20 +1371,44 @@
             t.cleanupTimeout = null;
           }
 
-          AudioMgr.load(t.audioBase).catch(() => {});
+          // precargar voz y ambiente
+          if (t.audioBase) AudioMgr.load(t.audioBase).catch(() => {});
+          if (t.ambientBase) AudioMgr.load(t.ambientBase).catch(() => {});
 
           await ensureLayers();
           ensureParticles();
-
           await revealInSync(t);
 
           if (audioUnlocked) {
-            const vol = volumeFor(t.audioBase);
-            AudioMgr.playLoop(t.audioBase, vol)
-              .then(() => {
-                AudioMgr.masterCrossfadeTo(t.audioBase);
-              })
-              .catch(() => {});
+            const volVoz = t.audioBase ? volumeFor(t.audioBase) : 1.0;
+            const volAmb = t.ambientBase ? volumeFor(t.ambientBase) : 0.5;
+
+            // 1) Ambiente en loop
+            if (t.ambientBase) {
+              AudioMgr.playLoop(t.ambientBase, volAmb)
+                .then(() => {
+                  // 2) Cuando hay voz, priorizamos la voz en el crossfade
+                  if (t.audioBase) AudioMgr.masterCrossfadeTo(t.audioBase);
+                  else AudioMgr.masterCrossfadeTo(t.ambientBase);
+                })
+                .catch(() => {});
+            }
+
+            // 2) Voz en off (una sola vez)
+            if (t.audioBase) {
+              AudioMgr.playOneShot(t.audioBase, volVoz)
+                .then(() => {
+                  // Durante la voz, foco en voz
+                  AudioMgr.masterCrossfadeTo(t.audioBase);
+                })
+                .catch(() => {});
+              // Cuando la voz termine (onended interno), volvemos a priorizar el ambiente si existe
+              // Esto se logra porque playOneShot elimina el handle y el crossfade siguiente será al ambiente
+              // Programamos un "poll" simple por si el navegador no dispara onended en background:
+              setTimeout(() => {
+                if (t.ambientBase) AudioMgr.masterCrossfadeTo(t.ambientBase);
+              }, 1000);
+            }
           }
         };
 
@@ -1365,7 +1423,11 @@
           });
           if (t.particles) t.particles.visible = false;
 
-          AudioMgr.stopWithFade(t.audioBase, 600);
+          // Detenemos ambiente (loop). La voz (one-shot) se apagará sola;
+          // si aún suena, también la silenciamos con fade.
+          if (t.ambientBase) AudioMgr.stopWithFade(t.ambientBase, 600);
+          if (t.audioBase) AudioMgr.stopWithFade(t.audioBase, 200);
+
           hideSpinner();
 
           if (calidad !== "hd") {
@@ -1385,6 +1447,7 @@
             }, 5000);
           }
 
+          // Crossfade hacia el último target activo
           setTimeout(() => {
             if (!activeTargets.size) return;
             let lastActiveIndex = null;
@@ -1392,12 +1455,19 @@
               lastActiveIndex = i;
             });
             const next = targets.find((tt) => tt.index === lastActiveIndex);
-            if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
+            if (next) {
+              // Prioriza voz si está sonando; si no, el ambiente
+              if (next.audioBase && AudioMgr.playing.has(next.audioBase)) {
+                AudioMgr.masterCrossfadeTo(next.audioBase);
+              } else if (next.ambientBase) {
+                AudioMgr.masterCrossfadeTo(next.ambientBase);
+              }
+            }
           }, 50);
         };
       });
 
-      // ====== Animación de partículas (solo activos) ======
+      // ====== Animación de partículas ======
       const animateParticles = () => {
         if (!particlesEnabled()) return;
         targets.forEach((t) => {
@@ -1462,10 +1532,8 @@
         });
       };
 
-      /* ====== Desbloqueo de AUDIO (una sola vez) ====== */
+      /* ====== Desbloqueo de AUDIO ====== */
       const splash = document.getElementById("splash");
-      const btnAudio = document.getElementById("btn-audio");
-      // Dispara un tono diminuto (inaudible ~-50 dB) durante ~40ms para “despertar” el audio en iOS/Android
       function pingAudioOnce() {
         try {
           const ctx = AudioMgr.ctx;
@@ -1479,37 +1547,38 @@
           osc.stop(ctx.currentTime + 0.05);
         } catch {}
       }
-
       const unlockAudioOnce = () => {
         try {
           AudioMgr.resume();
         } catch {}
-        // El “ping” debe ocurrir dentro del mismo callback del gesto
         pingAudioOnce();
-
         audioUnlocked = true;
 
-        // Si ya hay targets activos, arranca sus loops y hace crossfade
+        // Si ya hay targets activos, lanzamos SOLO ambiente (loop)
         let lastActiveIndex = null;
         activeTargets.forEach((i) => {
           lastActiveIndex = i;
         });
         targets.forEach((t) => {
-          if (activeTargets.has(t.index)) {
-            const vol = VOLUMES_BY_AUDIOBASE[t.audioBase] ?? 1.0;
-            // Importante: no “await” aquí para mantener el stack del gesto
-            AudioMgr.playLoop(t.audioBase, vol).catch(() => {});
+          if (activeTargets.has(t.index) && t.ambientBase) {
+            const volAmb = VOLUMES_BY_AUDIOBASE[t.ambientBase] ?? 0.5;
+            AudioMgr.playLoop(t.ambientBase, volAmb).catch(() => {});
           }
         });
         if (lastActiveIndex !== null) {
           const next = targets.find((tt) => tt.index === lastActiveIndex);
-          if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
+          if (next) {
+            if (next.audioBase && AudioMgr.playing.has(next.audioBase)) {
+              AudioMgr.masterCrossfadeTo(next.audioBase);
+            } else if (next.ambientBase) {
+              AudioMgr.masterCrossfadeTo(next.ambientBase);
+            }
+          }
         }
-
         hideSplash();
       };
 
-      // Enganche robusto del primer gesto para desbloquear audio (iOS/Android/Desktop)
+      // Enganche del primer gesto
       (() => {
         let armed = true;
         const handler = () => {
@@ -1524,7 +1593,6 @@
         const keyHandler = (e) => {
           if (e.code === "Space" || e.code === "Enter") handler();
         };
-        // Capturamos en fase de captura para ganar a otros listeners
         window.addEventListener("pointerdown", handler, {
           capture: true,
           once: true,
@@ -1554,7 +1622,6 @@
       };
       const hideSplash = () => {
         splash.classList.remove("show");
-        // Si ya fue removido, esto no rompe nada:
         setTimeout(() => splash.remove?.(), 250);
       };
 
@@ -1563,51 +1630,51 @@
           hideSpinner();
           AudioMgr.stopAll();
         } else {
-          // Al volver al foreground, si ya está desbloqueado y hay targets activos, relanza los loops
+          // Al volver, si ya está desbloqueado y hay targets activos: relanza SOLO ambientes
           if (audioUnlocked && activeTargets.size) {
             let lastActiveIndex = null;
             activeTargets.forEach((i) => {
               lastActiveIndex = i;
             });
             targets.forEach((t) => {
-              if (activeTargets.has(t.index)) {
-                const vol = VOLUMES_BY_AUDIOBASE[t.audioBase] ?? 1.0;
-                AudioMgr.playLoop(t.audioBase, vol).catch(() => {});
+              if (activeTargets.has(t.index) && t.ambientBase) {
+                const volAmb = VOLUMES_BY_AUDIOBASE[t.ambientBase] ?? 0.5;
+                AudioMgr.playLoop(t.ambientBase, volAmb).catch(() => {});
               }
             });
             if (lastActiveIndex !== null) {
               const next = targets.find((tt) => tt.index === lastActiveIndex);
-              if (next) AudioMgr.masterCrossfadeTo(next.audioBase);
+              if (next) {
+                if (next.audioBase && AudioMgr.playing.has(next.audioBase)) {
+                  AudioMgr.masterCrossfadeTo(next.audioBase);
+                } else if (next.ambientBase) {
+                  AudioMgr.masterCrossfadeTo(next.ambientBase);
+                }
+              }
             }
           }
         }
       });
 
-      // ====== Adaptive Scaler por FPS (ventanas de 1.5s con histéresis) ======
+      // ====== Adaptive Scaler por FPS ======
       function startAdaptiveScaler() {
-        let windowMs = 1500;
-        let frames = 0;
-        let t0 = performance.now();
-        let stableCount = 0;
-
+        let windowMs = 1500,
+          frames = 0,
+          t0 = performance.now(),
+          stableCount = 0;
         const evalAndMaybeScale = (fps) => {
           let target = calidad;
           if (fps > 28 && calidad !== "hd") target = "hd";
           else if (fps < 22 && calidad !== "low") target = "low";
           else if (fps >= 22 && fps <= 28 && calidad !== "mid") target = "mid";
-
           if (target !== calidad) {
             stableCount++;
             if (stableCount >= 2) {
-              // exige 2 ventanas seguidas
               setQuality(target);
               stableCount = 0;
             }
-          } else {
-            stableCount = 0;
-          }
+          } else stableCount = 0;
         };
-
         const tick = () => {
           frames++;
           const now = performance.now();
@@ -1628,7 +1695,7 @@
         showSplash();
         await mindarThree.start();
         showSplash();
-        startAdaptiveScaler(); // <--- activa el ajuste dinámico por FPS
+        startAdaptiveScaler();
 
         let last = performance.now();
         let frames = 0;
@@ -1646,10 +1713,11 @@
       };
       start();
 
-      /* ====== Precalentar audio buffers de los 3 primeros targets ====== */
+      /* ====== Precalentar algunos audios ====== */
       [0, 1, 2].forEach((i) => {
-        const base = targets[i]?.audioBase;
-        if (base) AudioMgr.load(base).catch(() => {});
+        const a = targets[i];
+        if (a?.ambientBase) AudioMgr.load(a.ambientBase).catch(() => {});
+        if (a?.audioBase) AudioMgr.load(a.audioBase).catch(() => {});
       });
     </script>
   </body>
