@@ -137,12 +137,10 @@
       const SPLASH_AUTOHIDE_MS = 100000;
       const SPINNER_DELAY_MS = 800;
 
-      // Puedes ajustar volúmenes individuales por clave (opcional).
-      // Si no hay entrada, usa 1.0 por defecto.
+      // Volúmenes por pista (opcional). Si no hay entrada, se usan defaults abajo.
       const VOLUMES_BY_AUDIOBASE = {
-        // Ejemplos:
-        // "Audio/Ambiente_General": 0.6,
-        // "Audio/VozOff_01": 1.0,
+        // "Audio/VozOff/VozOff_01": 1.2,
+        // "Audio/SonidoAmbiente/PajarosSingle": 0.35,
       };
 
       /* ====== FIX 100vh iOS ====== */
@@ -344,15 +342,12 @@
           "low-power";
       } catch {}
 
-      // Setter de calidad
       function setQuality(next) {
         const prev = calidad;
         const changed = prev !== next;
         calidad = next;
-
         const pxr = calidad === "low" ? 0.75 : calidad === "mid" ? 1.0 : 1.25;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pxr));
-
         if (
           changed &&
           typeof targets !== "undefined" &&
@@ -366,19 +361,20 @@
       }
       setQuality(calidad);
 
-      /* ====== Audio Manager ====== */
+      /* ====== Audio Manager (SIN FADES NI CROSSFADES) ====== */
       class WebAudioManager {
         constructor() {
           const Ctx = window.AudioContext || window.webkitAudioContext;
           this.ctx = new Ctx();
-          this.buffers = new Map(); // key -> AudioBuffer
-          this.playing = new Map(); // key -> { src, gain, baseVol, loop, stopTimer? }
+          this.buffers = new Map();
+          this.playing = new Map(); // key -> { src, gain, baseVol, loop }
           this.master = this.ctx.createGain();
           this.master.gain.value = 1;
           this.master.connect(this.ctx.destination);
           this.unlocked = this.ctx.state === "running";
-          this.cross = { enabled: true, backgroundLevel: 0.18, fadeMs: 700 };
-          this.focusKey = null;
+
+          // Crossfade desactivado por completo (no cambiará niveles después)
+          this.cross = { enabled: false, backgroundLevel: 0, fadeMs: 0 };
         }
         async resume() {
           if (this.ctx.state !== "running") await this.ctx.resume();
@@ -403,26 +399,24 @@
           }
           throw lastErr;
         }
-        _rampTo(g, target, ms = this.cross.fadeMs) {
+        // Sin rampas: asignación directa
+        _setGainImmediate(g, value) {
           const now = this.ctx.currentTime;
-          g.gain.setValueAtTime(g.gain.value, now);
-          g.gain.linearRampToValueAtTime(target, now + ms / 1000);
+          g.gain.cancelScheduledValues(now);
+          g.gain.setValueAtTime(value, now);
         }
-        async _ensureHandle(
-          basePath,
-          { loop = false, volume = 1.0, fadeMs = this.cross.fadeMs } = {}
-        ) {
+        async _ensureHandle(basePath, { loop = false, volume = 1.0 } = {}) {
           const buf = await this.load(basePath);
           const src = this.ctx.createBufferSource();
           src.buffer = buf;
           src.loop = loop;
           const gain = this.ctx.createGain();
-          gain.gain.value = 0;
+          // volumen directo (sin fade)
+          this._setGainImmediate(gain, volume);
           src.connect(gain).connect(this.master);
           src.start(0);
-          const handle = { src, gain, baseVol: volume, loop, stopTimer: null };
+          const handle = { src, gain, baseVol: volume, loop };
           this.playing.set(basePath, handle);
-          this._rampTo(gain, volume, fadeMs);
           if (!loop) {
             src.onended = () => {
               try {
@@ -430,44 +424,23 @@
                 gain.disconnect();
               } catch {}
               this.playing.delete(basePath);
-              if (this.focusKey === basePath) this.focusKey = null;
             };
           }
           return handle;
         }
-        async playLoop(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
+        async playLoop(basePath, volume = 1.0) {
           if (this.playing.has(basePath)) {
             const h = this.playing.get(basePath);
             h.baseVol = volume;
-            this._rampTo(h.gain, volume, fadeMs);
+            this._setGainImmediate(h.gain, volume);
             return h;
           }
-          return this._ensureHandle(basePath, { loop: true, volume, fadeMs });
+          return this._ensureHandle(basePath, { loop: true, volume });
         }
-        async playOneShot(basePath, volume = 1.0, fadeMs = this.cross.fadeMs) {
-          // Si ya hay uno previo (raro), lo detenemos y lanzamos el nuevo
-          if (this.playing.has(basePath)) this.stopWithFade(basePath, 80);
-          return this._ensureHandle(basePath, { loop: false, volume, fadeMs });
-        }
-        stopWithFade(basePath, fadeMs = this.cross.fadeMs) {
-          const h = this.playing.get(basePath);
-          if (!h) return;
-          if (h.stopTimer) {
-            clearTimeout(h.stopTimer);
-            h.stopTimer = null;
-          }
-          this._rampTo(h.gain, 0, fadeMs);
-          h.stopTimer = setTimeout(() => {
-            try {
-              h.src.stop(0);
-            } catch {}
-            try {
-              h.src.disconnect();
-              h.gain.disconnect();
-            } catch {}
-            this.playing.delete(basePath);
-            if (this.focusKey === basePath) this.focusKey = null;
-          }, fadeMs + 30);
+        async playOneShot(basePath, volume = 1.2) {
+          // si ya hay una voz igual corriendo, córtala y relanza
+          if (this.playing.has(basePath)) this.stop(basePath);
+          return this._ensureHandle(basePath, { loop: false, volume });
         }
         stop(basePath) {
           const h = this.playing.get(basePath);
@@ -479,42 +452,23 @@
             h.src.disconnect();
             h.gain.disconnect();
           } catch {}
-          if (h.stopTimer) clearTimeout(h.stopTimer);
           this.playing.delete(basePath);
-          if (this.focusKey === basePath) this.focusKey = null;
-        }
-        stopAllWithFade(ms = 250) {
-          for (const k of Array.from(this.playing.keys()))
-            this.stopWithFade(k, ms);
         }
         stopAll() {
           for (const k of Array.from(this.playing.keys())) this.stop(k);
         }
-        masterCrossfadeTo(basePath, fadeMs = this.cross.fadeMs) {
-          if (!this.cross.enabled) return;
-          this.focusKey = basePath;
-          for (const [k, h] of this.playing.entries()) {
-            const targetVol =
-              k === basePath
-                ? h.baseVol
-                : h.baseVol * this.cross.backgroundLevel;
-            this._rampTo(h.gain, targetVol, fadeMs);
-          }
+        // No-op (desactivado)
+        masterCrossfadeTo() {
+          /* sin efecto */
         }
-        setCrossfadeConfig({ backgroundLevel, fadeMs }) {
-          if (typeof backgroundLevel === "number")
-            this.cross.backgroundLevel = backgroundLevel;
-          if (typeof fadeMs === "number") this.cross.fadeMs = fadeMs;
+        setCrossfadeConfig() {
+          /* sin efecto */
         }
       }
       const AudioMgr = new WebAudioManager();
       let audioUnlocked = AudioMgr.unlocked;
 
-      /* ====== Definición de targets ======
-         Cada target ahora tiene:
-         - audioBase   (voz en off, una sola vez)
-         - ambientBase (ambiente, loop)
-      */
+      /* ====== Targets: voz (one-shot) + ambiente (loop) ====== */
       const targets = [
         {
           index: 0,
@@ -539,7 +493,7 @@
         {
           index: 1,
           audioBase: "Audio/VozOff/VozOff_02",
-          ambientBase:"Audio/SonidoAmbiente/Sonido_Video01",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video01",
           layers: [
             {
               src: "Animations/Video01_FondoConFondo.mp4",
@@ -951,7 +905,6 @@
         },
       ];
 
-      // Partículas por target (igual que antes)
       const particleMap = {
         0: {
           type: "foam",
@@ -1361,7 +1314,8 @@
           t.particles.visible = false;
           anchor.group.add(p);
         };
-        const volumeFor = (audioBase) => VOLUMES_BY_AUDIOBASE[audioBase] ?? 1.0;
+        const volumeFor = (audioBase) =>
+          VOLUMES_BY_AUDIOBASE[audioBase] ?? null;
 
         anchor.onTargetFound = async () => {
           activeTargets.add(t.index);
@@ -1370,7 +1324,6 @@
             t.cleanupTimeout = null;
           }
 
-          // precargar voz y ambiente
           if (t.audioBase) AudioMgr.load(t.audioBase).catch(() => {});
           if (t.ambientBase) AudioMgr.load(t.ambientBase).catch(() => {});
 
@@ -1379,34 +1332,18 @@
           await revealInSync(t);
 
           if (audioUnlocked) {
-            const volVoz = t.audioBase ? volumeFor(t.audioBase) : 1.0;
-            const volAmb = t.ambientBase ? volumeFor(t.ambientBase) : 0.5;
+            const volVoz = t.audioBase ? volumeFor(t.audioBase) ?? 1.2 : 1.2;
+            const volAmb = t.ambientBase
+              ? volumeFor(t.ambientBase) ?? 0.35
+              : 0.35;
 
-            // 1) Ambiente en loop
+            // Ambiente en loop (volumen directo)
             if (t.ambientBase) {
-              AudioMgr.playLoop(t.ambientBase, volAmb)
-                .then(() => {
-                  // 2) Cuando hay voz, priorizamos la voz en el crossfade
-                  if (t.audioBase) AudioMgr.masterCrossfadeTo(t.audioBase);
-                  else AudioMgr.masterCrossfadeTo(t.ambientBase);
-                })
-                .catch(() => {});
+              AudioMgr.playLoop(t.ambientBase, volAmb).catch(() => {});
             }
-
-            // 2) Voz en off (una sola vez)
+            // Voz (one-shot) sin fade, volumen directo, y no baja luego
             if (t.audioBase) {
-              AudioMgr.playOneShot(t.audioBase, volVoz)
-                .then(() => {
-                  // Durante la voz, foco en voz
-                  AudioMgr.masterCrossfadeTo(t.audioBase);
-                })
-                .catch(() => {});
-              // Cuando la voz termine (onended interno), volvemos a priorizar el ambiente si existe
-              // Esto se logra porque playOneShot elimina el handle y el crossfade siguiente será al ambiente
-              // Programamos un "poll" simple por si el navegador no dispara onended en background:
-              setTimeout(() => {
-                if (t.ambientBase) AudioMgr.masterCrossfadeTo(t.ambientBase);
-              }, 1000);
+              AudioMgr.playOneShot(t.audioBase, volVoz).catch(() => {});
             }
           }
         };
@@ -1422,10 +1359,9 @@
           });
           if (t.particles) t.particles.visible = false;
 
-          // Detenemos ambiente (loop). La voz (one-shot) se apagará sola;
-          // si aún suena, también la silenciamos con fade.
-          if (t.ambientBase) AudioMgr.stopWithFade(t.ambientBase, 600);
-          if (t.audioBase) AudioMgr.stopWithFade(t.audioBase, 200);
+          // Corte inmediato de ambos audios
+          if (t.ambientBase) AudioMgr.stop(t.ambientBase);
+          if (t.audioBase) AudioMgr.stop(t.audioBase);
 
           hideSpinner();
 
@@ -1445,24 +1381,6 @@
               }
             }, 5000);
           }
-
-          // Crossfade hacia el último target activo
-          setTimeout(() => {
-            if (!activeTargets.size) return;
-            let lastActiveIndex = null;
-            activeTargets.forEach((i) => {
-              lastActiveIndex = i;
-            });
-            const next = targets.find((tt) => tt.index === lastActiveIndex);
-            if (next) {
-              // Prioriza voz si está sonando; si no, el ambiente
-              if (next.audioBase && AudioMgr.playing.has(next.audioBase)) {
-                AudioMgr.masterCrossfadeTo(next.audioBase);
-              } else if (next.ambientBase) {
-                AudioMgr.masterCrossfadeTo(next.ambientBase);
-              }
-            }
-          }, 50);
         };
       });
 
@@ -1553,27 +1471,15 @@
         pingAudioOnce();
         audioUnlocked = true;
 
-        // Si ya hay targets activos, lanzamos SOLO ambiente (loop)
-        let lastActiveIndex = null;
+        // Si ya hay targets activos, relanza solo ambientes (sin tocar niveles luego)
         activeTargets.forEach((i) => {
-          lastActiveIndex = i;
-        });
-        targets.forEach((t) => {
-          if (activeTargets.has(t.index) && t.ambientBase) {
-            const volAmb = VOLUMES_BY_AUDIOBASE[t.ambientBase] ?? 0.5;
+          const t = targets.find((tt) => tt.index === i);
+          if (t?.ambientBase) {
+            const volAmb = VOLUMES_BY_AUDIOBASE[t.ambientBase] ?? 0.35;
             AudioMgr.playLoop(t.ambientBase, volAmb).catch(() => {});
           }
         });
-        if (lastActiveIndex !== null) {
-          const next = targets.find((tt) => tt.index === lastActiveIndex);
-          if (next) {
-            if (next.audioBase && AudioMgr.playing.has(next.audioBase)) {
-              AudioMgr.masterCrossfadeTo(next.audioBase);
-            } else if (next.ambientBase) {
-              AudioMgr.masterCrossfadeTo(next.ambientBase);
-            }
-          }
-        }
+
         hideSplash();
       };
 
@@ -1629,28 +1535,14 @@
           hideSpinner();
           AudioMgr.stopAll();
         } else {
-          // Al volver, si ya está desbloqueado y hay targets activos: relanza SOLO ambientes
           if (audioUnlocked && activeTargets.size) {
-            let lastActiveIndex = null;
             activeTargets.forEach((i) => {
-              lastActiveIndex = i;
-            });
-            targets.forEach((t) => {
-              if (activeTargets.has(t.index) && t.ambientBase) {
-                const volAmb = VOLUMES_BY_AUDIOBASE[t.ambientBase] ?? 0.5;
+              const t = targets.find((tt) => tt.index === i);
+              if (t?.ambientBase) {
+                const volAmb = VOLUMES_BY_AUDIOBASE[t.ambientBase] ?? 0.35;
                 AudioMgr.playLoop(t.ambientBase, volAmb).catch(() => {});
               }
             });
-            if (lastActiveIndex !== null) {
-              const next = targets.find((tt) => tt.index === lastActiveIndex);
-              if (next) {
-                if (next.audioBase && AudioMgr.playing.has(next.audioBase)) {
-                  AudioMgr.masterCrossfadeTo(next.audioBase);
-                } else if (next.ambientBase) {
-                  AudioMgr.masterCrossfadeTo(next.ambientBase);
-                }
-              }
-            }
           }
         }
       });
