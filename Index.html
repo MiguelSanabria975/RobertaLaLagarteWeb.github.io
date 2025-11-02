@@ -515,12 +515,11 @@
          - audioBase   (voz en off, una sola vez)
          - ambientBase (ambiente, loop)
       */
-      const AMBIENT_DEFAULT = "Audio/Ambiente_General";
       const targets = [
         {
           index: 0,
-          audioBase: "Audio/VozOff_01",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_01",
+          ambientBase: "Audio/SonidoAmbiente/PajarosSingle",
           layers: [
             {
               src: "Animations/Video00_ConFondo.mp4",
@@ -539,8 +538,8 @@
         },
         {
           index: 1,
-          audioBase: "Audio/VozOff_02",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_02",
+          ambientBase:"Audio/SonidoAmbiente/Sonido_Video01",
           layers: [
             {
               src: "Animations/Video01_FondoConFondo.mp4",
@@ -555,8 +554,8 @@
         },
         {
           index: 2,
-          audioBase: "Audio/VozOff_03",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_03",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video02",
           layers: [
             {
               src: "Animations/Video02.mp4",
@@ -569,8 +568,8 @@
         },
         {
           index: 3,
-          audioBase: "Audio/VozOff_04",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_04",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video03",
           layers: [
             {
               src: "Animations/Video03_Mitad.mp4",
@@ -588,8 +587,8 @@
         },
         {
           index: 4,
-          audioBase: "Audio/VozOff_05",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_05",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video04",
           layers: [
             {
               src: "Animations/Video04.mp4",
@@ -601,8 +600,8 @@
         },
         {
           index: 5,
-          audioBase: "Audio/VozOff_06",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_06",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video05",
           layers: [
             {
               src: "Animations/Video05_ConFondo.mp4",
@@ -615,8 +614,8 @@
         },
         {
           index: 6,
-          audioBase: "Audio/VozOff_07",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_07",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video06",
           layers: [
             {
               src: "Animations/Video06_Fondo.mp4",
@@ -636,16 +635,16 @@
         },
         {
           index: 7,
-          audioBase: "Audio/VozOff_09",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_08",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video07",
           layers: [
             { src: "Animations/Video07.mp4", z: 0.2, chroma: "0x0f00da" },
           ],
         },
         {
           index: 8,
-          audioBase: "Audio/VozOff_10",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_09",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video07",
           layers: [
             {
               src: "Animations/Video08.mp4",
@@ -657,8 +656,8 @@
         },
         {
           index: 9,
-          audioBase: "Audio/VozOff_11",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_10",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video07",
           layers: [
             {
               src: "Animations/Video09.mp4",
@@ -671,8 +670,8 @@
         },
         {
           index: 10,
-          audioBase: "Audio/VozOff_12",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_11",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video10",
           layers: [
             {
               src: "Animations/Video10.mp4",
@@ -686,8 +685,8 @@
         },
         {
           index: 11,
-          audioBase: "Audio/VozOff_13",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_12",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video11",
           layers: [
             {
               src: "Animations/Video11.mp4",
@@ -699,24 +698,24 @@
         },
         {
           index: 12,
-          audioBase: "Audio/VozOff_14",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_13",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video12",
           layers: [
             { src: "Animations/Video12.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
         },
         {
           index: 13,
-          audioBase: "Audio/VozOff_15",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_14",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video13",
           layers: [
             { src: "Animations/Video13.mp4", z: 0.1, chroma: "0x0f00da" },
           ],
         },
         {
           index: 14,
-          audioBase: "Audio/VozOff_16",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_15",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video13",
           layers: [
             {
               src: "Animations/Video14.mp4",
@@ -729,8 +728,8 @@
         },
         {
           index: 15,
-          audioBase: "Audio/VozOff_16",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video15",
           layers: [
             {
               src: "Animations/Video15.mp4",
@@ -744,8 +743,8 @@
         },
         {
           index: 16,
-          audioBase: "Audio/VozOff_16",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_16",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video16",
           layers: [
             {
               src: "Animations/Video16.mp4",
@@ -757,8 +756,8 @@
         },
         {
           index: 17,
-          audioBase: "Audio/VozOff_17",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video13",
           layers: [
             {
               src: "Animations/Video17.mp4",
@@ -770,8 +769,8 @@
         },
         {
           index: 18,
-          audioBase: "Audio/VozOff_18",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_17",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video18",
           layers: [
             {
               src: "Animations/Video18.mp4",
@@ -783,16 +782,16 @@
         },
         {
           index: 19,
-          audioBase: "Audio/VozOff_19",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_18",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video19",
           layers: [
             { src: "Animations/Video19.mp4", y: -0.08, chroma: "0x0f00da" },
           ],
         },
         {
           index: 20,
-          audioBase: "Audio/VozOff_20",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_19",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video20",
           layers: [
             {
               src: "Animations/Video20Fondo.mp4",
@@ -812,8 +811,8 @@
         },
         {
           index: 21,
-          audioBase: "Audio/VozOff_21",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_20",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video04",
           layers: [
             {
               src: "Animations/Video21.mp4",
@@ -827,8 +826,8 @@
         },
         {
           index: 22,
-          audioBase: "Audio/VozOff_22",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_21",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video22",
           layers: [
             {
               src: "Animations/Video22.mp4",
@@ -841,8 +840,8 @@
         },
         {
           index: 23,
-          audioBase: "Audio/VozOff_23",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_22",
+          ambientBase: "Audio/SonidoAmbiente/PajarosSingle",
           layers: [
             {
               src: "Animations/Video23.mp4",
@@ -854,8 +853,8 @@
         },
         {
           index: 24,
-          audioBase: "Audio/VozOff_24",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_23",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video10",
           layers: [
             {
               src: "Animations/Video24.mp4",
@@ -867,8 +866,8 @@
         },
         {
           index: 25,
-          audioBase: "Audio/VozOff_25",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_24",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video25",
           layers: [
             {
               src: "Animations/Video25.mp4",
@@ -881,8 +880,8 @@
         },
         {
           index: 26,
-          audioBase: "Audio/VozOff_26",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_25",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video22",
           layers: [
             {
               src: "Animations/Video26.mp4",
@@ -894,8 +893,8 @@
         },
         {
           index: 27,
-          audioBase: "Audio/VozOff_27",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_26",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video27",
           layers: [
             {
               src: "Animations/Video27.mp4",
@@ -909,8 +908,8 @@
         },
         {
           index: 28,
-          audioBase: "Audio/VozOff_28",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_27",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video28",
           layers: [
             {
               src: "Animations/Video28.mp4",
@@ -922,8 +921,8 @@
         },
         {
           index: 29,
-          audioBase: "Audio/VozOff_29",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_28",
+          ambientBase: "Audio/SonidoAmbiente/Sonido_Video29",
           layers: [
             {
               src: "Animations/Video29.mp4",
@@ -937,8 +936,8 @@
         },
         {
           index: 30,
-          audioBase: "Audio/VozOff_30",
-          ambientBase: AMBIENT_DEFAULT,
+          audioBase: "Audio/VozOff/VozOff_29",
+          ambientBase: "Audio/SonidoAmbiente/PajarosSingle",
           layers: [
             {
               src: "Animations/Video30.mp4",
